@@ -44,8 +44,11 @@ RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IG
 RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_BANNED_LOADED = re.compile(r"banned users.*loaded.*?(\d+)", re.IGNORECASE)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?", re.IGNORECASE)
+RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?" re.IGNORECASE)
 RE_PLAYER_KICKED = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in kicked list for:\s*(.+)", re.IGNORECASE)
+RE_VOTEKICKED = re.compile(r"\[GameManager\]\s*votekicked:\s*([^\s,\n]+)", re.IGNORECASE)
+RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*players vote", re.IGNORECASE)
+RE_HIGH_PING_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*high ping", re.IGNORECASE)
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
 
@@ -54,6 +57,8 @@ DEFAULT_ALLOWED_EVENTS = {
     'map_load',
     'player_banned',
     'player_kicked',
+    'player_votekicked',
+    'player_high_ping',
     'banned_users_loaded',
     'xp_added',
     'admin_granted',
@@ -90,8 +95,8 @@ def now_ts():
 
 def human_ts():
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%d-%m %H:%M')
-    return datetime.now().strftime('%Y-%d-%m %H:%M')
+        return datetime.now(TZINFO).strftime('%Y-%d-%m %H:%M:%S')
+    return datetime.now().strftime('%Y-%d-%m %H:%M:%S')
 
 
 
@@ -255,6 +260,27 @@ def process_line(line: str):
         reason = m.group(2).strip()
         if 'player_kicked' in ALLOWED_EVENTS:
             append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
+        return
+
+    m = RE_VOTEKICKED.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'raw': text})
+        return
+
+    m = RE_VOTEKICK_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'reason': 'players vote', 'raw': text})
+        return
+
+    m = RE_HIGH_PING_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_high_ping' in ALLOWED_EVENTS:
+            append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
         return
 
     m = RE_TEAM_SWITCH.search(text)
