@@ -44,7 +44,7 @@ RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IG
 RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_BANNED_LOADED = re.compile(r"banned users.*loaded.*?(\d+)", re.IGNORECASE)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?" re.IGNORECASE)
+RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?", re.IGNORECASE)
 RE_PLAYER_KICKED = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in kicked list for:\s*(.+)", re.IGNORECASE)
 RE_VOTEKICKED = re.compile(r"\[GameManager\]\s*votekicked:\s*([^\s,\n]+)", re.IGNORECASE)
 RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*players vote", re.IGNORECASE)
