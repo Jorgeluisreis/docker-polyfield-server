@@ -14,8 +14,8 @@ if [ ! -z "$TZ" ]; then
 fi
 
 DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
-mkdir -p "$DATA_DIR/editor"
-mkdir -p "$DATA_DIR"
+mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
+cd "$DATA_DIR"
 
 LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux\.zip' | sort -V | tail -n1)
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
@@ -25,20 +25,20 @@ if [ -z "$LATEST_URL" ]; then
   exit 1
 fi
 
-VERSION_FILE="$DATA_DIR/.server_version"
+VERSION_FILE=".server_version"
 INSTALLED_VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
-EXPECTED_BIN_PATH="$DATA_DIR/${LATEST_URL%.zip}.x86_64"
+EXPECTED_BIN="${LATEST_URL%.zip}.x86_64"
 
-if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ]; then
-  echo "Latest version ($(basename "$EXPECTED_BIN_PATH")) is already installed in volume. Skipping download."
+if [ -f "$EXPECTED_BIN" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ]; then
+  echo "Latest version ($EXPECTED_BIN) is already installed in volume. Skipping download."
 else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
-  rm -f "$DATA_DIR"/Polyfield_v*_Linux.x86_64
-  rm -rf "$DATA_DIR"/Polyfield_v*_Linux_Data
-  wget -O "$DATA_DIR/Polyfield_Linux.zip" "$FULL_URL"
-  unzip -o "$DATA_DIR/Polyfield_Linux.zip" -d "$DATA_DIR"
-  rm "$DATA_DIR/Polyfield_Linux.zip"
-  chmod +x "$EXPECTED_BIN_PATH"
+  rm -f Polyfield_v*_Linux.x86_64
+  rm -rf Polyfield_v*_Linux_Data
+  wget -O "Polyfield_Linux.zip" "$FULL_URL"
+  unzip -o "Polyfield_Linux.zip"
+  rm "Polyfield_Linux.zip"
+  chmod +x "$EXPECTED_BIN"
   echo "$LATEST_URL" > "$VERSION_FILE"
 fi
 
