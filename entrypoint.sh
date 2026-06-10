@@ -2,7 +2,7 @@
 
 set -e
 
-if [ ! -z "$TZ" ]; then
+if [ -n "$TZ" ]; then
   if [ -f "/usr/share/zoneinfo/$TZ" ]; then
     ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
     echo "$TZ" > /etc/timezone
@@ -11,7 +11,6 @@ if [ ! -z "$TZ" ]; then
   else
     echo "WARNING: Timezone '$TZ' not found under /usr/share/zoneinfo. Using container default timezone."
   fi
-fi
 fi
 
 declare -A defaults=(
