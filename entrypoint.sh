@@ -12,6 +12,28 @@ if [ ! -z "$TZ" ]; then
     echo "WARNING: Timezone '$TZ' not found under /usr/share/zoneinfo. Using container default timezone."
   fi
 fi
+fi
+
+declare -A defaults=(
+  [platforms]="Android,IPhonePlayer"
+  [admin code]=""
+  [allow votekick]="true"
+  [allow flycam]="false"
+  [match map]="Normandy"
+  [match type]="conquest,team death-match"
+  [max ping]="300"
+  [max players]="64"
+  [max bots]="0"
+  [max score]="500"
+  [max time]="15"
+  [wait time]="15"
+  [max vehicle]="4"
+  [damage factor]="1"
+  [map destruction]="enabled"
+  [friendly fire]="disabled"
+  [npc difficulty]="1"
+  [transform sync rate]="3"
+)
 
 export DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
@@ -42,6 +64,30 @@ else
   echo "$LATEST_URL" > "$VERSION_FILE"
 fi
 
+CONFIG_KEYS=(
+  "platforms"
+  "region"
+  "starting port"
+  "username"
+  "admin code"
+  "allow votekick"
+  "allow flycam"
+  "match map"
+  "match type"
+  "max ping"
+  "max players"
+  "max bots"
+  "max score"
+  "max time"
+  "wait time"
+  "max vehicle"
+  "damage factor"
+  "map destruction"
+  "friendly fire"
+  "npc difficulty"
+  "transform sync rate"
+)
+
 CONFIG_PATH="$DATA_DIR/ServerConfig.txt"
 if [ -d "$CONFIG_PATH" ]; then
   echo "ERROR: $CONFIG_PATH is a directory. It must be a file."
@@ -49,70 +95,47 @@ if [ -d "$CONFIG_PATH" ]; then
   exit 1
 fi
 
+echo "Processing ServerConfig.txt..."
+declare -A current_config_values
 if [ -f "$CONFIG_PATH" ]; then
-  echo "ServerConfig.txt found in volume. Checking for environment overrides..."
-  CONFIG_KEYS=(
-    "platforms"
-    "region"
-    "starting port"
-    "username"
-    "admin code"
-    "allow votekick"
-    "allow flycam"
-    "match map"
-    "match type"
-    "max ping"
-    "max players"
-    "max bots"
-    "max score"
-    "max time"
-    "wait time"
-    "max vehicle"
-    "damage factor"
-    "map destruction"
-    "friendly fire"
-    "npc difficulty"
-    "transform sync rate"
-  )
-  TMP_CONFIG="${CONFIG_PATH}.tmp"
-  cp "$CONFIG_PATH" "$TMP_CONFIG"
-  for key in "${CONFIG_KEYS[@]}"; do
-    env_var_name="${key// /_}"
-    env_value="${!env_var_name}"
-    if [ -n "$env_value" ]; then
-      current_value=$(grep -E "^$key=" "$CONFIG_PATH" | cut -d'=' -f2-)
-      if [ "$current_value" != "$env_value" ]; then
-        echo "Updating $key in ServerConfig.txt: '$current_value' -> '$env_value'"
-        sed -i "s|^$key=.*|$key=$env_value|" "$TMP_CONFIG"
-      fi
+  echo "Existing ServerConfig.txt found. Reading current values."
+  while IFS='=' read -r key value; do
+    key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [[ "$key" =~ ^[[:alnum:]\ ]+$ && ! "$key" =~ ^# ]]; then
+      current_config_values["$key"]="$value"
     fi
-  done
-  mv "$TMP_CONFIG" "$CONFIG_PATH"
+  done < "$CONFIG_PATH"
+else
+  echo "ServerConfig.txt not found. Creating a new one."
 fi
 
-if [ ! -f "$CONFIG_PATH" ]; then
-  echo "ServerConfig.txt not found. Attempting to create from environment variables..."
+TMP_CONFIG="${CONFIG_PATH}.tmp"
+> "$TMP_CONFIG"
 
-  declare -A defaults=(
-    [platforms]="Android,IPhonePlayer"
-    [admin code]=""
-    [allow votekick]="true"
-    [allow flycam]="false"
-    [match map]="Normandy"
-    [match type]="conquest,team death-match"
-    [max ping]="300"
-    [max players]="64"
-    [max bots]="0"
-    [max score]="500"
-    [max time]="15"
-    [wait time]="15"
-    [max vehicle]="4"
-    [damage factor]="1"
-    [map destruction]="enabled"
-    [friendly fire]="disabled"
-    [npc difficulty]="1"
-    [transform sync rate]="3"
-  )
+for key in "${CONFIG_KEYS[@]}"; do
+  env_var_name="${key// /_}"
+  env_value="${!env_var_name}"
+  
+  local_value=""
+  if [ -n "$env_value" ]; then
+    local_value="$env_value"
+  elif [ -n "${current_config_values[$key]}" ]; then
+    local_value="${current_config_values[$key]}"
+  elif [ -n "${defaults[$key]}" ]; then
+    local_value="${defaults[$key]}"
+  fi
+
+  if [ -n "$env_value" ] && [ "${current_config_values[$key]}" != "$env_value" ]; then
+    echo "Updating $key in ServerConfig.txt: '${current_config_values[$key]}' -> '$env_value'"
+  elif [ -z "$env_value" ] && [ -z "${current_config_values[$key]}" ] && [ -n "${defaults[$key]}" ]; then
+    echo "Setting $key in ServerConfig.txt to default: '${defaults[$key]}'"
+  elif [ -z "$env_value" ] && [ -n "${current_config_values[$key]}" ]; then
+    echo "Keeping $key in ServerConfig.txt: '${current_config_values[$key]}'"
+  fi
+  echo "$key=$local_value" >> "$TMP_CONFIG"
+done
+mv "$TMP_CONFIG" "$CONFIG_PATH"
 
   if [ -z "$region" ]; then
     echo "ERROR: region is required and must be set via environment variable."
@@ -126,20 +149,6 @@ if [ ! -f "$CONFIG_PATH" ]; then
     echo "ERROR: username is required and must be set via environment variable."
     exit 1
   fi
-
-  > "$CONFIG_PATH"
-  for key in "${CONFIG_KEYS[@]}"; do
-    env_var_name="${key// /_}"
-    env_value="${!env_var_name}"
-    if [ -n "$env_value" ]; then
-      value="$env_value"
-    else
-      value="${defaults[$key]}"
-    fi
-    echo "$key=$value" >> "$CONFIG_PATH"
-  done
-  echo "ServerConfig.txt generated from environment variables."
-fi
 
 echo "Validating server configuration..."
 /validate_config.sh "$CONFIG_PATH"
