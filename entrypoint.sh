@@ -24,10 +24,18 @@ if [ -z "$LATEST_URL" ]; then
   exit 1
 fi
 
-echo "Downloading Polyfield from $FULL_URL..."
-wget -O Polyfield_Linux.zip "$FULL_URL"
-unzip -o Polyfield_Linux.zip
-chmod +x Polyfield_v*_Linux.x86_64
+EXPECTED_BIN="${LATEST_URL%.zip}.x86_64"
+
+if [ -f "$EXPECTED_BIN" ]; then
+  echo "Latest version ($EXPECTED_BIN) is already installed. Skipping download."
+else
+  echo "New version detected or binary missing. Downloading from $FULL_URL..."
+  rm -f Polyfield_v*_Linux.x86_64
+  wget -O Polyfield_Linux.zip "$FULL_URL"
+  unzip -o Polyfield_Linux.zip
+  rm Polyfield_Linux.zip
+  chmod +x "$EXPECTED_BIN"
+fi
 
 CONFIG_PATH="/root/.config/unity3d/Mohammad Alizade/Polyfield/ServerConfig.txt"
 if [ -d "$CONFIG_PATH" ]; then
