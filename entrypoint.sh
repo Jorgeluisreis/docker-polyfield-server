@@ -24,20 +24,25 @@ if [ -z "$LATEST_URL" ]; then
   exit 1
 fi
 
-EXPECTED_BIN="${LATEST_URL%.zip}.x86_64"
+DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
+VERSION_FILE="$DATA_DIR/.server_version"
+INSTALLED_VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
+EXPECTED_BIN_PATH="$DATA_DIR/${LATEST_URL%.zip}.x86_64"
 
-if [ -f "$EXPECTED_BIN" ]; then
-  echo "Latest version ($EXPECTED_BIN) is already installed. Skipping download."
+if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ]; then
+  echo "Latest version ($(basename "$EXPECTED_BIN_PATH")) is already installed in volume. Skipping download."
 else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
-  rm -f Polyfield_v*_Linux.x86_64
-  wget -O Polyfield_Linux.zip "$FULL_URL"
-  unzip -o Polyfield_Linux.zip
-  rm Polyfield_Linux.zip
-  chmod +x "$EXPECTED_BIN"
+  rm -f "$DATA_DIR"/Polyfield_v*_Linux.x86_64
+  rm -rf "$DATA_DIR"/Polyfield_v*_Linux_Data
+  wget -O "$DATA_DIR/Polyfield_Linux.zip" "$FULL_URL"
+  unzip -o "$DATA_DIR/Polyfield_Linux.zip" -d "$DATA_DIR"
+  rm "$DATA_DIR/Polyfield_Linux.zip"
+  chmod +x "$EXPECTED_BIN_PATH"
+  echo "$LATEST_URL" > "$VERSION_FILE"
 fi
 
-CONFIG_PATH="/root/.config/unity3d/Mohammad Alizade/Polyfield/ServerConfig.txt"
+CONFIG_PATH="$DATA_DIR/ServerConfig.txt"
 if [ -d "$CONFIG_PATH" ]; then
   echo "ERROR: $CONFIG_PATH is a directory. It must be a file."
   echo "To fix: Remove the directory and create an empty file with 'rm -rf $CONFIG_PATH && touch $CONFIG_PATH' on your host."
@@ -209,7 +214,6 @@ fi
 
 echo "Starting Polyfield server supervisor..."
 
-DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 RAW_LOG="$DATA_DIR/server_raw.log"
 LOGS_DIR="$DATA_DIR/logs"
 mkdir -p "$LOGS_DIR"
@@ -227,7 +231,7 @@ if [ "$LOG_MONITOR_ENABLED" = "true" ] && [ -x /usr/local/bin/polyfield-log-filt
   echo "Log monitor pid=$LOG_MONITOR_PID"
 fi
 
-POLYFIELD_BIN=$(ls Polyfield_v*_Linux.x86_64 | head -n1)
+POLYFIELD_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux.x86_64 | head -n1)
 
 if [ -z "$POLYFIELD_BIN" ]; then
   echo "ERROR: Could not find Polyfield binary to run."
@@ -235,9 +239,12 @@ if [ -z "$POLYFIELD_BIN" ]; then
 fi
 
 while true; do
-  echo "$(date) - Launching ./$POLYFIELD_BIN"
-  echo "$(date) - Launching ./$POLYFIELD_BIN" >> "$RAW_LOG"
-  ./$POLYFIELD_BIN >> "$RAW_LOG" 2>&1 &
+  BIN_NAME=$(basename "$POLYFIELD_BIN")
+  echo "$(date) - Launching $BIN_NAME from volume"
+  echo "$(date) - Launching $BIN_NAME from volume" >> "$RAW_LOG"
+  
+  cd "$DATA_DIR"
+  ./"$BIN_NAME" >> "$RAW_LOG" 2>&1 &
   CHILD_PID=$!
 
   while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
