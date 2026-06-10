@@ -13,10 +13,11 @@ if [ ! -z "$TZ" ]; then
   fi
 fi
 
-DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
-mkdir -p "$DATA_DIR/editor"
+export DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
+mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
+cd "$DATA_DIR"
 
-LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux\.zip' | sort -V | tail -n1)
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
@@ -32,11 +33,11 @@ if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ]; the
   echo "Latest version ($(basename "$EXPECTED_BIN_PATH")) is already installed in volume. Skipping download."
 else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
-  rm -f "$DATA_DIR"/Polyfield_v*_Linux.x86_64
-  rm -rf "$DATA_DIR"/Polyfield_v*_Linux_Data
-  wget -O "$DATA_DIR/Polyfield_Linux.zip" "$FULL_URL"
-  unzip -o "$DATA_DIR/Polyfield_Linux.zip" -d "$DATA_DIR"
-  rm "$DATA_DIR/Polyfield_Linux.zip"
+  rm -f Polyfield_v*_Linux.x86_64
+  rm -rf Polyfield_v*_Linux_Data
+  wget -O "Polyfield_Linux.zip" "$FULL_URL"
+  unzip -o "Polyfield_Linux.zip"
+  rm "Polyfield_Linux.zip"
   chmod +x "$EXPECTED_BIN_PATH"
   echo "$LATEST_URL" > "$VERSION_FILE"
 fi
@@ -145,6 +146,15 @@ echo "Validating server configuration..."
 
 
 CONTAINER_ID=$(hostname)
+
+RESTART_REASON="Manual or external request."
+if [ "$RESTART_ENABLED" = "true" ]; then
+  if [ -n "$RESTART_INTERVAL_HOURS" ]; then
+    RESTART_REASON="Configured to restart every $RESTART_INTERVAL_HOURS hours."
+  elif [ -n "$RESTART_AT_HOUR" ]; then
+    RESTART_REASON="Configured to restart at $RESTART_AT_HOUR $TZ."
+  fi
+fi
 
 RESTART_ENABLED=${RESTART_ENABLED:-false}
 
