@@ -41,6 +41,7 @@ RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*R
 RE_HIGH_PING_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*high ping", re.IGNORECASE)
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
+RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
 
 
 DEFAULT_ALLOWED_EVENTS = {
@@ -129,7 +130,6 @@ def append_event(mapname, event_type, payload):
         if CURRENT_MAP:
             target_map = CURRENT_MAP
         else:
-
             return
 
 
@@ -188,6 +188,13 @@ def process_line(line: str):
         except Exception:
 
             pass
+
+    m = RE_SERVER_RESTARTING.search(text)
+    if m:
+        reason = m.group(1).strip()
+        if 'server_restarting' in ALLOWED_EVENTS:
+            append_event('global', 'server_restarting', reason)
+        return
 
 
     m = RE_LOADING.search(text)

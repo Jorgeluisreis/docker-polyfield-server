@@ -198,6 +198,15 @@ else
   echo "Restart scheduling disabled (RESTART_ENABLED != true)."
 fi
 
+RESTART_REASON="Manual or external request."
+if [ "$RESTART_ENABLED" = "true" ]; then
+  if [ -n "$RESTART_INTERVAL_HOURS" ]; then
+    RESTART_REASON="Configured to restart every $RESTART_INTERVAL_HOURS hours."
+  elif [ -n "$RESTART_AT_HOUR" ]; then
+    RESTART_REASON="Configured to restart at $RESTART_AT_HOUR $TZ."
+  fi
+fi
+
 echo "Starting Polyfield server supervisor..."
 
 DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
@@ -243,10 +252,12 @@ while true; do
       echo "$(date) - Restart requested (sentinel found)."
       echo "$(date) - Restart requested (sentinel found)." >> "$RAW_LOG"
 
-  TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
- 
-  JSON_EVENT=$(printf '{"ts":"%s","map":"global","event":"server_restarting","data":{"reason":"scheduled_restart","raw":"Restart requested (sentinel found)"}}' "$TS")
-  printf '%s\n' "$JSON_EVENT" >> "$RAW_LOG"
+      echo "server_restarting: Restart requested (sentinel found). Reason: $RESTART_REASON" >> "$RAW_LOG"
+
+      for i in 5 4 3 2 1; do
+        echo "server_restarting: The server will restart in $i seconds. Reason: $RESTART_REASON" >> "$RAW_LOG"
+        sleep 1
+      done
 
       NEED_ROTATE=1
 
