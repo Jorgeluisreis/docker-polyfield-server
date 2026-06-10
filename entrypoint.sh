@@ -33,7 +33,7 @@ CONFIG_PATH="/root/.config/unity3d/Mohammad Alizade/Polyfield/ServerConfig.txt"
 if [ -d "$CONFIG_PATH" ]; then
   echo "ERROR: $CONFIG_PATH is a directory. It must be a file."
   echo "To fix: Remove the directory and create an empty file with 'rm -rf $CONFIG_PATH && touch $CONFIG_PATH' on your host."
-  kill 1
+  exit 1
 fi
 
 if [ -f "$CONFIG_PATH" ]; then
@@ -103,15 +103,15 @@ if [ ! -f "$CONFIG_PATH" ]; then
 
   if [ -z "$region" ]; then
     echo "ERROR: region is required and must be set via environment variable."
-    kill 1
+    exit 1
   fi
   if [ -z "$starting_port" ]; then
     echo "ERROR: starting_port is required and must be set via environment variable."
-    kill 1
+    exit 1
   fi
   if [ -z "$username" ]; then
     echo "ERROR: username is required and must be set via environment variable."
-    kill 1
+    exit 1
   fi
 
   > "$CONFIG_PATH"
@@ -196,7 +196,6 @@ DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 RAW_LOG="$DATA_DIR/server_raw.log"
 LOGS_DIR="$DATA_DIR/logs"
 mkdir -p "$LOGS_DIR"
-mkdir -p "$LOGS_DIR"
 
 ROTATE_RAW_ON_RESTART=${ROTATE_RAW_ON_RESTART:-true}
 RAW_LOG_MAX_BYTES=${RAW_LOG_MAX_BYTES:-0}
@@ -226,6 +225,13 @@ while true; do
 
   while kill -0 "$CHILD_PID" >/dev/null 2>&1; do
     if [ -f /tmp/polyfield_restart ]; then
+      if [ "$LOG_MONITOR_ENABLED" = "true" ]; then
+        if [ ! -f /tmp/polyfield_restart_ready ]; then
+          sleep 2
+          continue
+        fi
+      fi
+
       echo "$(date) - Restart requested (sentinel found)."
       echo "$(date) - Restart requested (sentinel found)." >> "$RAW_LOG"
 
@@ -236,7 +242,7 @@ while true; do
 
       NEED_ROTATE=1
 
-      rm -f /tmp/polyfield_restart
+      rm -f /tmp/polyfield_restart /tmp/polyfield_restart_ready
       kill -TERM "$CHILD_PID" 2>/dev/null || true
       sleep 5
       break
