@@ -4,7 +4,7 @@
 CONFIG="$1"
 if [ ! -f "$CONFIG" ]; then
   echo "ERROR: ServerConfig.txt not found at $CONFIG"
-  kill 1
+  exit 1
 fi
 
 validate_bool() {
@@ -56,11 +56,13 @@ declare -A optional_fields=(
 )
 
 for key in "${!required_fields[@]}"; do
-  value=$(grep -E "^$key=" "$CONFIG" | cut -d'=' -f2)
+  value=$(grep -iE "^[[:space:]]*$key[[:space:]]*=" "$CONFIG" | head -n 1 | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
   if [ -z "$value" ]; then
     echo "ERROR: $key is required!"
-  kill 1
+    exit 1
   fi
+
   validation="${required_fields[$key]}"
   if [[ "$validation" == int* ]]; then
     IFS=':' read _ min max <<< "$validation"
@@ -72,7 +74,8 @@ for key in "${!required_fields[@]}"; do
 done
 
 for key in "${!optional_fields[@]}"; do
-  value=$(grep -E "^$key=" "$CONFIG" | cut -d'=' -f2)
+  value=$(grep -iE "^[[:space:]]*$key[[:space:]]*=" "$CONFIG" | head -n 1 | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
   if [ -n "$value" ]; then
     validation="${optional_fields[$key]}"
     if [[ "$validation" == "bool" ]]; then
