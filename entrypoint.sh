@@ -13,10 +13,11 @@ if [ ! -z "$TZ" ]; then
   fi
 fi
 
-mkdir -p /root/.config/unity3d/Mohammad\ Alizade/Polyfield/editor
-mkdir -p /root/.config/unity3d/Mohammad\ Alizade/Polyfield
+DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
+mkdir -p "$DATA_DIR/editor"
+mkdir -p "$DATA_DIR"
 
-LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9\.]+_Linux\.zip' | sort -V | tail -n1)
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux\.zip' | sort -V | tail -n1)
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
@@ -24,7 +25,6 @@ if [ -z "$LATEST_URL" ]; then
   exit 1
 fi
 
-DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 VERSION_FILE="$DATA_DIR/.server_version"
 INSTALLED_VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
 EXPECTED_BIN_PATH="$DATA_DIR/${LATEST_URL%.zip}.x86_64"
@@ -201,15 +201,6 @@ if [ "$RESTART_ENABLED" = "true" ]; then
   fi
 else
   echo "Restart scheduling disabled (RESTART_ENABLED != true)."
-fi
-
-RESTART_REASON="Manual or external request."
-if [ "$RESTART_ENABLED" = "true" ]; then
-  if [ -n "$RESTART_INTERVAL_HOURS" ]; then
-    RESTART_REASON="Configured to restart every $RESTART_INTERVAL_HOURS hours."
-  elif [ -n "$RESTART_AT_HOUR" ]; then
-    RESTART_REASON="Configured to restart at $RESTART_AT_HOUR $TZ."
-  fi
 fi
 
 echo "Starting Polyfield server supervisor..."
