@@ -2,7 +2,7 @@
 
 set -e
 
-if [ -n "$TZ" ]; then
+if [ ! -z "$TZ" ]; then
   if [ -f "/usr/share/zoneinfo/$TZ" ]; then
     ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
     echo "$TZ" > /etc/timezone
@@ -11,6 +11,7 @@ if [ -n "$TZ" ]; then
   else
     echo "WARNING: Timezone '$TZ' not found under /usr/share/zoneinfo. Using container default timezone."
   fi
+fi
 fi
 
 declare -A defaults=(
@@ -49,14 +50,24 @@ fi
 VERSION_FILE="$DATA_DIR/.server_version"
 INSTALLED_VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
 EXPECTED_BIN_PATH="$DATA_DIR/${LATEST_URL%.zip}.x86_64"
+MANIFEST_FILE="$DATA_DIR/.server_manifest"
 
-if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ]; then
+if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ] && [ -f "$MANIFEST_FILE" ]; then
   echo "Latest version ($(basename "$EXPECTED_BIN_PATH")) is already installed in volume. Skipping download."
 else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
-  rm -f Polyfield_v*_Linux.x86_64
+  
+  if [ -f "$MANIFEST_FILE" ]; then
+    echo "Cleaning up previous version using manifest..."
+    while IFS= read -r file; do
+      [ -n "$file" ] && rm -rf "$file"
+    done < "$MANIFEST_FILE"
+  fi
+  
+  rm -f Polyfield_v*_Linux.x86_64 GameAssembly.so UnityPlayer.so
   rm -rf Polyfield_v*_Linux_Data
   wget -O "Polyfield_Linux.zip" "$FULL_URL"
+  unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
   unzip -o "Polyfield_Linux.zip"
   rm "Polyfield_Linux.zip"
   chmod +x "$EXPECTED_BIN_PATH"
@@ -136,18 +147,18 @@ for key in "${CONFIG_KEYS[@]}"; do
 done
 mv "$TMP_CONFIG" "$CONFIG_PATH"
 
-  if [ -z "$region" ]; then
-    echo "ERROR: region is required and must be set via environment variable."
-    exit 1
-  fi
-  if [ -z "$starting_port" ]; then
-    echo "ERROR: starting_port is required and must be set via environment variable."
-    exit 1
-  fi
-  if [ -z "$username" ]; then
-    echo "ERROR: username is required and must be set via environment variable."
-    exit 1
-  fi
+if [ -z "$region" ]; then
+  echo "ERROR: region is required and must be set via environment variable."
+  exit 1
+fi
+if [ -z "$starting_port" ]; then
+  echo "ERROR: starting_port is required and must be set via environment variable."
+  exit 1
+fi
+if [ -z "$username" ]; then
+  echo "ERROR: username is required and must be set via environment variable."
+  exit 1
+fi
 
 echo "Validating server configuration..."
 /validate_config.sh "$CONFIG_PATH"
@@ -204,7 +215,7 @@ if [ "$RESTART_ENABLED" = "true" ]; then
     echo "$MINUTE $HOUR * * * root /bin/touch /tmp/polyfield_restart >> /var/log/polyfield-restart-cron.log 2>&1" >> "$CRON_FILE"
     echo "" >> "$CRON_FILE"
     chmod 0644 "$CRON_FILE"
-    echo "Cronjob configured to signal restart daily at $(printf '%02d' $HOUR):$(printf '%02d' $MINUTE)."
+  echo "Cronjob configured to signal restart daily at $(printf '%02d' $((10#$HOUR))):$(printf '%02d' $((10#$MINUTE)))."
   else
     echo "RESTART_ENABLED is true but no RESTART_INTERVAL_HOURS or RESTART_AT_HOUR set. Nothing scheduled."
   fi
@@ -267,12 +278,12 @@ while true; do
       echo "$(date) - Restart requested (sentinel found)."
       echo "$(date) - Restart requested (sentinel found)." >> "$RAW_LOG"
 
-      echo "server_restarting: Restart requested (sentinel found). Reason: $RESTART_REASON" >> "$RAW_LOG"
-
       for i in 5 4 3 2 1; do
-        echo "server_restarting: The server will restart in $i seconds. Reason: $RESTART_REASON" >> "$RAW_LOG"
+        echo "server_restarting: The server will restart in $i seconds." >> "$RAW_LOG"
         sleep 1
       done
+
+      echo "server_restarting: Restart requested (sentinel found). Reason: $RESTART_REASON" >> "$RAW_LOG"
 
       NEED_ROTATE=1
 
