@@ -148,16 +148,11 @@ def append_event(mapname, event_type, payload):
     else:
         raw = str(payload)
 
-    log_line = f"{human_ts()} | {event_type}: {raw}"
     try:
         with open(mapfile, 'a', encoding='utf-8') as f:
-            f.write(f"{log_line}\n")
+            f.write(f"{human_ts()} | {event_type}: {raw}\n")
     except Exception:
         pass
-
-    if LOG_MAP_TO_STDOUT:
-        print(log_line, flush=True)
-
 
 def process_line(line: str):
     global CURRENT_MAP, LAST_MAP_LOAD_TIME
