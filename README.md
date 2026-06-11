@@ -2,13 +2,10 @@
   <img src="https://i.imgur.com/de0AmoU.png" alt="Polyfield Server Docker" width="400"/>
   <br>
   <a href="https://github.com/Jorgeluisreis/docker-polyfield-server/releases">
-    <img src="https://img.shields.io/github/v/release/Jorgeluisreis/docker-polyfield-server?logo=github" alt="Release">
+    <img src="https://img.shields.io/github/v/release/Jorgeluisreis/docker-polyfield-server?logo=github&sort=semver" alt="Release">
   </a>
   <a href="https://github.com/Jorgeluisreis/docker-polyfield-server/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/Jorgeluisreis/docker-polyfield-server" alt="License">
-  </a>
-  <a href="https://github.com/Jorgeluisreis/docker-polyfield-server/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/Jorgeluisreis/docker-polyfield-server/CI.yaml?branch=main" alt="CI">
   </a>
   <a href="https://hub.docker.com/r/jluisreis/polyfield-server">
     <img src="https://img.shields.io/docker/pulls/jluisreis/polyfield-server?logo=docker" alt="Docker Pulls">
