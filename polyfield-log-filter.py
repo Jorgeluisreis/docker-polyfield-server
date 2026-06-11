@@ -106,11 +106,6 @@ def create_map_log(mapname):
     slugname = slug(mapname)
     filename = f"{slugname}_{file_ts()}.log"
     path = os.path.join(LOGS_DIR, filename)
-    try:
-        with open(path, 'a', encoding='utf-8') as f:
-            f.write(f"{human_ts()} | map_log_created: {mapname}\n")
-    except Exception:
-        pass
     MAP_LOGFILE[slugname] = path
     return path
 
