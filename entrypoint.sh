@@ -12,7 +12,6 @@ if [ ! -z "$TZ" ]; then
     echo "WARNING: Timezone '$TZ' not found under /usr/share/zoneinfo. Using container default timezone."
   fi
 fi
-fi
 
 declare -A defaults=(
   [platforms]="Android,IPhonePlayer"
