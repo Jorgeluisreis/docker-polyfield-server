@@ -130,7 +130,7 @@ TMP_CONFIG="${CONFIG_PATH}.tmp"
 > "$TMP_CONFIG"
 
 for key in "${CONFIG_KEYS[@]}"; do
-  env_var_name="${key// /_}"
+  env_var_name="${key//[ -]/_}"
   env_value="${!env_var_name}"
   
   local_value=""
