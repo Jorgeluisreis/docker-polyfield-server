@@ -32,6 +32,9 @@ declare -A defaults=(
   [friendly fire]="disabled"
   [npc difficulty]="1"
   [transform sync rate]="3"
+  [anti-cheat]="enabled"
+  [weather override]="none"
+  [optimize network]="true"
 )
 
 export DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
@@ -48,11 +51,11 @@ fi
 
 VERSION_FILE="$DATA_DIR/.server_version"
 INSTALLED_VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "")
-EXPECTED_BIN_PATH="$DATA_DIR/${LATEST_URL%.zip}.x86_64"
 MANIFEST_FILE="$DATA_DIR/.server_manifest"
+CURRENT_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 2>/dev/null | head -n1)
 
-if [ -f "$EXPECTED_BIN_PATH" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ] && [ -f "$MANIFEST_FILE" ]; then
-  echo "Latest version ($(basename "$EXPECTED_BIN_PATH")) is already installed in volume. Skipping download."
+if [ -n "$CURRENT_BIN" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ] && [ -f "$MANIFEST_FILE" ]; then
+  echo "Latest version ($(basename "$CURRENT_BIN")) is already installed in volume. Skipping download."
 else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
   
@@ -69,7 +72,8 @@ else
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
   unzip -o "Polyfield_Linux.zip"
   rm "Polyfield_Linux.zip"
-  chmod +x "$EXPECTED_BIN_PATH"
+  NEW_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 | head -n1)
+  [ -n "$NEW_BIN" ] && chmod +x "$NEW_BIN"
   echo "$LATEST_URL" > "$VERSION_FILE"
 fi
 
