@@ -43,8 +43,12 @@ mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 UNITY_PATH="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 mkdir -p "$(dirname "$UNITY_PATH")"
 if [ ! -L "$UNITY_PATH" ]; then
-    rm -rf "$UNITY_PATH"
-    ln -s "$DATA_DIR" "$UNITY_PATH"
+    if mountpoint -q "$UNITY_PATH" 2>/dev/null; then
+        echo "INFO: $UNITY_PATH is already a mount point. Skipping symlink creation to avoid data loss."
+    else
+        rm -rf "$UNITY_PATH"
+        ln -s "$DATA_DIR" "$UNITY_PATH"
+    fi
 fi
 
 cd "$DATA_DIR"
