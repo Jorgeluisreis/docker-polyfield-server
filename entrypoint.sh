@@ -38,7 +38,7 @@ export DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 cd "$DATA_DIR"
 
-LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
@@ -63,8 +63,8 @@ else
     done < "$MANIFEST_FILE"
   fi
   
-  rm -f Polyfield_v*_Linux.x86_64 GameAssembly.so UnityPlayer.so
-  rm -rf Polyfield_v*_Linux_Data
+  rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
+  rm -rf Polyfield_v*_Linux*_Data
   wget -O "Polyfield_Linux.zip" "$FULL_URL"
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
   unzip -o "Polyfield_Linux.zip"
@@ -252,7 +252,7 @@ if [ "$LOG_MONITOR_ENABLED" = "true" ] && [ -x /usr/local/bin/polyfield-log-filt
   echo "Log monitor pid=$LOG_MONITOR_PID"
 fi
 
-POLYFIELD_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux.x86_64 | head -n1)
+POLYFIELD_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 | head -n1)
 
 if [ -z "$POLYFIELD_BIN" ]; then
   echo "ERROR: Could not find Polyfield binary to run."
