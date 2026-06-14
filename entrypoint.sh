@@ -95,6 +95,9 @@ CONFIG_KEYS=(
   "friendly fire"
   "npc difficulty"
   "transform sync rate"
+  "anti-cheat"
+  "weather override"
+  "optimize network"
 )
 
 CONFIG_PATH="$DATA_DIR/ServerConfig.txt"
