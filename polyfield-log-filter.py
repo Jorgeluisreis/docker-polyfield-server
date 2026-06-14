@@ -11,7 +11,7 @@ try:
 except Exception:
     ZoneInfo = None
 
-DATA_DIR = os.environ.get('DATA_DIR', '/root/polyfield')
+DATA_DIR = os.environ.get('DATA_DIR', '/root')
 LOGS_DIR = os.path.join(DATA_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 

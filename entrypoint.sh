@@ -37,19 +37,10 @@ declare -A defaults=(
   [optimize network]="true"
 )
 
-export DATA_DIR="/root/polyfield"
-mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
+PRESERVE_DATA_ON_UPDATE=${PRESERVE_DATA_ON_UPDATE:-true}
 
-UNITY_PATH="/root/.config/unity3d/Mohammad Alizade/Polyfield"
-mkdir -p "$(dirname "$UNITY_PATH")"
-if [ ! -L "$UNITY_PATH" ]; then
-    if mountpoint -q "$UNITY_PATH" 2>/dev/null; then
-        echo "INFO: $UNITY_PATH is already a mount point. Skipping symlink creation to avoid data loss."
-    else
-        rm -rf "$UNITY_PATH"
-        ln -s "$DATA_DIR" "$UNITY_PATH"
-    fi
-fi
+export DATA_DIR="/root"
+mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 
 cd "$DATA_DIR"
 
@@ -72,10 +63,20 @@ else
   echo "New version detected or binary missing. Downloading from $FULL_URL..."
   
   if [ -f "$MANIFEST_FILE" ]; then
-    echo "Cleaning up previous version using manifest..."
-    while IFS= read -r file; do
-      [ -n "$file" ] && rm -rf "$file"
-    done < "$MANIFEST_FILE"
+    if [ "$PRESERVE_DATA_ON_UPDATE" = "false" ]; then
+      echo "Cleaning up previous version completely..."
+      while IFS= read -r file; do
+        [ -n "$file" ] && rm -rf "$file"
+      done < "$MANIFEST_FILE"
+    else
+      echo "Cleaning up previous version using manifest, preserving user data..."
+      while IFS= read -r file; do
+        if [[ "$file" == "editor/"* || "$file" == "logs/"* || "$file" == "editor" || "$file" == "logs" || "$file" == "ServerConfig.txt" || "$file" == "banned-users.txt" ]]; then
+          continue
+        fi
+        [ -n "$file" ] && rm -rf "$file"
+      done < "$MANIFEST_FILE"
+    fi
   fi
   
   rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
@@ -130,7 +131,7 @@ if [ -f "$CONFIG_PATH" ]; then
   while IFS='=' read -r key value; do
     key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    if [[ "$key" =~ ^[[:alnum:]\ ]+$ && ! "$key" =~ ^# ]]; then
+    if [[ "$key" =~ ^[[:alnum:][:space:]-]+$ && ! "$key" =~ ^# ]]; then
       current_config_values["$key"]="$value"
     fi
   done < "$CONFIG_PATH"
