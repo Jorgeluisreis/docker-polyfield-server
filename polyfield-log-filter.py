@@ -11,7 +11,7 @@ try:
 except Exception:
     ZoneInfo = None
 
-DATA_DIR = os.environ.get('DATA_DIR', '/root/.config/unity3d/Mohammad Alizade/Polyfield')
+DATA_DIR = os.environ.get('DATA_DIR', '/root/polyfield')
 LOGS_DIR = os.path.join(DATA_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 
