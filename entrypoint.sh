@@ -38,7 +38,7 @@ export DATA_DIR="/root/.config/unity3d/Mohammad Alizade/Polyfield"
 mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 cd "$DATA_DIR"
 
-LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*?\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
