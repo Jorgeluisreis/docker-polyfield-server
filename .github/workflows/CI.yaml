@@ -42,46 +42,40 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: GHCR.io Login Successful
+        run: echo "Successfully logged in to GitHub Container Registry."
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Docker Hub Login Successful
+        run: echo "Successfully logged in to Docker Hub."
 
-      - name: Extract Docker metadata (GHCR)
-        id: meta-ghcr
-        uses: docker/metadata-action@v4
+      - name: Extract Docker Metadata for GHCR.io and Docker Hub
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/jorgeluisreis/polyfield-server
+          images: |
+            ghcr.io/jorgeluisreis/polyfield-server
+            jluisreis/polyfield-server
           tags: |
             type=raw,value=${{ github.ref_name }}
-            type=raw,value=latest
+            type=raw,value=beta,enable=${{ github.event.release.target_commitish == 'development' }}
+            type=raw,value=latest,enable=${{ github.event.release.target_commitish != 'development' }}
+      - name: Docker Metadata Extracted
+        run: echo "Extracted Docker metadata for both registries."
 
-      - name: Extract Docker metadata (Docker Hub)
-        id: meta-dockerhub
-        uses: docker/metadata-action@v4
-        with:
-          images: jluisreis/polyfield-server
-          tags: |
-            type=raw,value=${{ github.ref_name }}
-            type=raw,value=latest
-
-      - name: Build and push to GHCR
+      - name: Build and Push Image to GHCR.io and Docker Hub
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta-ghcr.outputs.tags }}
-          labels: ${{ steps.meta-ghcr.outputs.labels }}
-
-      - name: Build and push to Docker Hub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta-dockerhub.outputs.tags }}
-          labels: ${{ steps.meta-dockerhub.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Image Build and Push Complete
+        run: echo "Image successfully built and pushed to GHCR.io and Docker Hub."
 
       - name: Update Docker Hub description
         uses: peter-evans/dockerhub-description@v4

@@ -4,7 +4,7 @@
 CONFIG="$1"
 if [ ! -f "$CONFIG" ]; then
   echo "ERROR: ServerConfig.txt not found at $CONFIG"
-  kill 1
+  exit 1
 fi
 
 validate_bool() {
@@ -37,7 +37,7 @@ declare -A required_fields=(
 )
 
 declare -A optional_fields=(
-  [admin code]=""
+  [admin code]="numeric"
   [allow votekick]="bool"
   [allow flycam]="bool"
   [match map]=""
@@ -53,14 +53,19 @@ declare -A optional_fields=(
   [friendly fire]="bool|enabled|disabled"
   [npc difficulty]="int:1:3"
   [transform sync rate]="int:1:3"
+  [anti-cheat]="bool|enabled|disabled"
+  [weather override]="string|none|random|clear|rain|snow"
+  [optimize network]="bool|true|false"
 )
 
 for key in "${!required_fields[@]}"; do
-  value=$(grep -E "^$key=" "$CONFIG" | cut -d'=' -f2)
+  value=$(grep -iE "^[[:space:]]*$key[[:space:]]*=" "$CONFIG" | head -n 1 | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
   if [ -z "$value" ]; then
     echo "ERROR: $key is required!"
-  kill 1
+    exit 1
   fi
+
   validation="${required_fields[$key]}"
   if [[ "$validation" == int* ]]; then
     IFS=':' read _ min max <<< "$validation"
@@ -72,12 +77,18 @@ for key in "${!required_fields[@]}"; do
 done
 
 for key in "${!optional_fields[@]}"; do
-  value=$(grep -E "^$key=" "$CONFIG" | cut -d'=' -f2)
+  value=$(grep -iE "^[[:space:]]*$key[[:space:]]*=" "$CONFIG" | head -n 1 | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
   if [ -n "$value" ]; then
     validation="${optional_fields[$key]}"
     if [[ "$validation" == "bool" ]]; then
       if ! validate_bool "$value"; then
         echo "ERROR: $key must be true or false!"
+        exit 1
+      fi
+    elif [[ "$validation" == "numeric" ]]; then
+      if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: $key must contain only numbers!"
         exit 1
       fi
     elif [[ "$validation" == int* ]]; then
@@ -86,9 +97,17 @@ for key in "${!optional_fields[@]}"; do
         echo "ERROR: $key must be an integer between $min and $max!"
         exit 1
       fi
-    elif [[ "$validation" == "bool|enabled|disabled" ]]; then
-      if [[ "$value" != "true" && "$value" != "false" && "$value" != "enabled" && "$value" != "disabled" ]]; then
-        echo "ERROR: $key must be true, false, enabled or disabled!"
+    elif [[ "$validation" == *"|"* ]]; then
+      type="${validation%%|*}"
+      options="${validation#*|}"
+      if [[ "$value" =~ ^($options)$ ]]; then
+        : 
+      elif [[ "$type" == "bool" ]] && validate_bool "$value"; then
+        : 
+      else
+        allowed_list="${options//|/, }"
+        [[ "$type" == "bool" && ! "$options" =~ "true" ]] && allowed_list="true, false, $allowed_list"
+        echo "ERROR: $key must be one of: $allowed_list!"
         exit 1
       fi
     fi

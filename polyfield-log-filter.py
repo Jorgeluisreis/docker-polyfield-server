@@ -4,27 +4,14 @@ import os
 import sys
 import re
 import json
+import time
 from datetime import datetime
 try:
     from zoneinfo import ZoneInfo
 except Exception:
     ZoneInfo = None
 
-DATA_DIR = os.environ.get('DATA_DIR', '/root/.config/unity3d/Mohammad Alizade/Polyfield')
-LOGS_DIR = os.path.join(DATA_DIR, 'logs')
-#!/usr/bin/env python3
-
-import os
-import sys
-import re
-import json
-from datetime import datetime
-try:
-    from zoneinfo import ZoneInfo
-except Exception:
-    ZoneInfo = None
-
-DATA_DIR = os.environ.get('DATA_DIR', '/root/.config/unity3d/Mohammad Alizade/Polyfield')
+DATA_DIR = os.environ.get('DATA_DIR', '/root')
 LOGS_DIR = os.path.join(DATA_DIR, 'logs')
 os.makedirs(LOGS_DIR, exist_ok=True)
 
@@ -37,6 +24,9 @@ if TZ and ZoneInfo:
 else:
     TZINFO = None
 
+LAST_MAP_LOAD_TIME = time.time()
+SENTINEL_RESTART_REQUEST = '/tmp/polyfield_restart'
+SENTINEL_RESTART_READY = '/tmp/polyfield_restart_ready'
 
 RE_MAP_LOAD = re.compile(r"map(?: name)?[:=]\s*'?\"?([^'\"]+)'?\"?", re.IGNORECASE)
 RE_LOADING = re.compile(r"loading map\s+([^,\n]+)", re.IGNORECASE)
@@ -51,6 +41,7 @@ RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*R
 RE_HIGH_PING_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*high ping", re.IGNORECASE)
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
+RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
 
 
 DEFAULT_ALLOWED_EVENTS = {
@@ -115,14 +106,17 @@ def create_map_log(mapname):
     slugname = slug(mapname)
     filename = f"{slugname}_{file_ts()}.log"
     path = os.path.join(LOGS_DIR, filename)
-    try:
-        with open(path, 'a', encoding='utf-8') as f:
-            f.write(f"{human_ts()} | map_log_created: {mapname}\n")
-    except Exception:
-        pass
     MAP_LOGFILE[slugname] = path
     return path
 
+def check_restart_safety(force_ready=False):
+    if os.path.exists(SENTINEL_RESTART_REQUEST):
+        if force_ready or (time.time() - LAST_MAP_LOAD_TIME < 60):
+            try:
+                with open(SENTINEL_RESTART_READY, 'w') as f:
+                    f.write('ready')
+            except Exception:
+                pass
 
 def append_event(mapname, event_type, payload):
 
@@ -131,7 +125,6 @@ def append_event(mapname, event_type, payload):
         if CURRENT_MAP:
             target_map = CURRENT_MAP
         else:
-
             return
 
 
@@ -161,9 +154,8 @@ def append_event(mapname, event_type, payload):
     except Exception:
         pass
 
-
 def process_line(line: str):
-    global CURRENT_MAP
+    global CURRENT_MAP, LAST_MAP_LOAD_TIME
     text = (line or '').strip()
     if not text:
         return
@@ -179,6 +171,7 @@ def process_line(line: str):
 
                 if event_type == 'map_load':
                     CURRENT_MAP = mapname
+                    LAST_MAP_LOAD_TIME = time.time()
                     create_map_log(mapname)
                     if 'map_load' in ALLOWED_EVENTS:
                         append_event(mapname, event_type, payload)
@@ -190,11 +183,19 @@ def process_line(line: str):
 
             pass
 
+    m = RE_SERVER_RESTARTING.search(text)
+    if m:
+        reason = m.group(1).strip()
+        if 'server_restarting' in ALLOWED_EVENTS:
+            append_event('global', 'server_restarting', reason)
+        return
+
 
     m = RE_LOADING.search(text)
     if m:
         mapname = m.group(1).strip()
         CURRENT_MAP = mapname
+        LAST_MAP_LOAD_TIME = time.time()
         create_map_log(mapname)
         if 'map_load' in ALLOWED_EVENTS:
             append_event(mapname, 'map_load', {'raw': text})
@@ -204,6 +205,7 @@ def process_line(line: str):
     if m:
         mapname = m.group(1).strip()
         CURRENT_MAP = mapname
+        LAST_MAP_LOAD_TIME = time.time()
         create_map_log(mapname)
         if 'map_load' in ALLOWED_EVENTS:
             append_event(mapname, 'map_load', {'raw': text})
@@ -213,6 +215,7 @@ def process_line(line: str):
     if m:
         mapname = m.group(1).strip()
         CURRENT_MAP = mapname
+        LAST_MAP_LOAD_TIME = time.time()
         create_map_log(mapname)
         if 'server_list_created' in ALLOWED_EVENTS:
             append_event(mapname, 'server_list_created', {'raw': text})
@@ -301,6 +304,7 @@ def process_line(line: str):
             a = b = total = None
         if 'match_end' in ALLOWED_EVENTS:
             append_event('global', 'match_end', {'added1': a, 'added2': b, 'total': total, 'raw': text})
+        check_restart_safety(force_ready=True)
         return
 
 
@@ -312,12 +316,9 @@ def main():
     while True:
         line = sys.stdin.readline()
         if not line:
-            try:
-                import time
-                time.sleep(0.1)
-                continue
-            except KeyboardInterrupt:
-                break
+            check_restart_safety(force_ready=False)
+            time.sleep(0.1)
+            continue
         try:
             process_line(line)
         except Exception:
