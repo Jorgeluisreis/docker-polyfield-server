@@ -47,7 +47,7 @@ services:
       - username=Host
       - admin_code=123456
     volumes:
-      - ./data:/root/.config/unity3d/Mohammad Alizade/Polyfield/
+      - ./data:/root/
     ports:
       - "7777:7777/udp"
     restart: unless-stopped
