@@ -81,7 +81,7 @@ else
   
   rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
   rm -rf Polyfield_v*_Linux*_Data
-  wget -q -O "Polyfield_Linux.zip" "$FULL_URL"
+  wget -q -O "Polyfield_Linux.zip" "$FULL_URL" > /dev/null 2>&1
   echo "Download complete. Extracting files..."
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
   unzip -qo "Polyfield_Linux.zip"
@@ -263,7 +263,7 @@ touch "$RAW_LOG"
 LOG_MONITOR_ENABLED=${LOG_MONITOR_ENABLED:-false}
 if [ "$LOG_MONITOR_ENABLED" = "true" ] && [ -x /usr/local/bin/polyfield-log-filter.py ]; then
   echo "Starting log monitor..."
-  tail -n 0 -F "$RAW_LOG" 2>/dev/null | python3 /usr/local/bin/polyfield-log-filter.py &
+  tail -n 0 -F "$RAW_LOG" 2>/dev/null | python3 -u /usr/local/bin/polyfield-log-filter.py &
   LOG_MONITOR_PID=$!
   echo "Log monitor pid=$LOG_MONITOR_PID"
 fi

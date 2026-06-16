@@ -158,7 +158,7 @@ def append_event(mapname, event_type, payload):
         pass
     
     if LOG_TO_STDOUT:
-        print(f"{human_ts()} | {event_type}: {raw}")
+        print(f"{human_ts()} | {event_type}: {raw}", flush=True)
 
 def process_line(line: str):
     global CURRENT_MAP, LAST_MAP_LOAD_TIME
