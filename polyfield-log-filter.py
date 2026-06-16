@@ -34,7 +34,7 @@ RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IG
 RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_BANNED_LOADED = re.compile(r"banned users.*loaded.*?(\d+)", re.IGNORECASE)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?", re.IGNORECASE)
+RE_PLAYER_BANNED = re.compile(r"\bplayer\s+([^,\n]+)\s+bann?ed\b(?: for\s*(.*))?", re.IGNORECASE)
 RE_SEI_BAN = re.compile(r"\[SEI\]\s+banning\s+user\s+\[\d+\](.*?)\s+for\s+(.*)", re.IGNORECASE)
 RE_PLAYER_KICKED = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in kicked list for:\s*(.+)", re.IGNORECASE)
 RE_VOTEKICKED = re.compile(r"\[GameManager\]\s*votekicked:\s*([^\s,\n]+)", re.IGNORECASE)
@@ -255,6 +255,35 @@ def process_line(line: str):
             append_event('global', 'xp_added', {'player': player, 'xp': xp, 'raw': text})
         return
 
+    m = RE_HIGH_PING_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_high_ping' in ALLOWED_EVENTS:
+            append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
+        return
+
+    m = RE_VOTEKICK_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'reason': 'players vote', 'raw': text})
+        return
+
+    m = RE_VOTEKICKED.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'raw': text})
+        return
+
+    m = RE_PLAYER_KICKED.search(text)
+    if m:
+        player = m.group(1).strip()
+        reason = m.group(2).strip()
+        if 'player_kicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
+        return
+
     m = RE_SEI_BAN.search(text)
     if m:
         player = m.group(1).strip()
@@ -269,35 +298,6 @@ def process_line(line: str):
         reason = m.group(2).strip() if m.group(2) else None
         if 'player_banned' in ALLOWED_EVENTS:
             append_event('global', 'player_banned', {'player': player, 'reason': reason, 'raw': text})
-        return
-
-    m = RE_PLAYER_KICKED.search(text)
-    if m:
-        player = m.group(1).strip()
-        reason = m.group(2).strip()
-        if 'player_kicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
-        return
-
-    m = RE_VOTEKICKED.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_votekicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_votekicked', {'player': player, 'raw': text})
-        return
-
-    m = RE_VOTEKICK_WARN.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_votekicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_votekicked', {'player': player, 'reason': 'players vote', 'raw': text})
-        return
-
-    m = RE_HIGH_PING_WARN.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_high_ping' in ALLOWED_EVENTS:
-            append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
         return
 
     m = RE_TEAM_SWITCH.search(text)
