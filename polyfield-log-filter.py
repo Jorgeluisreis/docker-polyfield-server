@@ -60,6 +60,8 @@ DEFAULT_ALLOWED_EVENTS = {
     'server_restarting',
 }
 
+LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT', 'false').lower() == 'true'
+
 
 env_events = os.environ.get('LOG_EVENTS')
 if env_events:
@@ -154,6 +156,9 @@ def append_event(mapname, event_type, payload):
             f.write(f"{human_ts()} | {event_type}: {raw}\n")
     except Exception:
         pass
+    
+    if LOG_TO_STDOUT:
+        print(f"{human_ts()} | {event_type}: {raw}")
 
 def process_line(line: str):
     global CURRENT_MAP, LAST_MAP_LOAD_TIME
