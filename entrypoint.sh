@@ -81,9 +81,11 @@ else
   
   rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
   rm -rf Polyfield_v*_Linux*_Data
-  wget -O "Polyfield_Linux.zip" "$FULL_URL"
+  wget -q --show-progress -O "Polyfield_Linux.zip" "$FULL_URL"
+  echo "Download complete. Extracting files..."
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
-  unzip -o "Polyfield_Linux.zip"
+  unzip -qo "Polyfield_Linux.zip"
+  echo "Extraction complete."
   rm "Polyfield_Linux.zip"
   NEW_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 | head -n1)
   [ -n "$NEW_BIN" ] && chmod +x "$NEW_BIN"
