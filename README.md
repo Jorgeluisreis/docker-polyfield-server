@@ -1,11 +1,8 @@
 <div align="center">
   <img src="https://i.imgur.com/de0AmoU.png" alt="Polyfield Server Docker" width="400"/>
   <br>
-  <a href="https://github.com/Jorgeluisreis/docker-polyfield-server/releases">
-    <img src="https://img.shields.io/github/v/release/Jorgeluisreis/docker-polyfield-server?logo=github&sort=semver" alt="Release">
-  </a>
   <a href="https://github.com/Jorgeluisreis/docker-polyfield-server/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/Jorgeluisreis/docker-polyfield-server" alt="License">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
   </a>
   <a href="https://hub.docker.com/r/jluisreis/polyfield-server">
     <img src="https://img.shields.io/docker/pulls/jluisreis/polyfield-server?logo=docker" alt="Docker Pulls">
