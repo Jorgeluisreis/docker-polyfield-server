@@ -81,7 +81,7 @@ else
   
   rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
   rm -rf Polyfield_v*_Linux*_Data
-  wget -q --show-progress -O "Polyfield_Linux.zip" "$FULL_URL"
+  wget -q -O "Polyfield_Linux.zip" "$FULL_URL"
   echo "Download complete. Extracting files..."
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
   unzip -qo "Polyfield_Linux.zip"
