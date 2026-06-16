@@ -32,7 +32,6 @@ RE_MAP_LOAD = re.compile(r"map(?: name)?[:=]\s*'?\"?([^'\"]+)'?\"?", re.IGNORECA
 RE_LOADING = re.compile(r"loading map\s+([^,\n]+)", re.IGNORECASE)
 RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_BANNED_LOADED = re.compile(r"banned users.*loaded.*?(\d+)", re.IGNORECASE)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_PLAYER_BANNED = re.compile(r"\bplayer\s+([^,\n]+)\s+bann?ed\b(?: for\s*(.*))?", re.IGNORECASE)
 RE_SEI_BAN = re.compile(r"\[SEI\]\s+banning\s+user\s+\[\d+\](.*?)\s+for\s+(.*)", re.IGNORECASE)
@@ -51,7 +50,6 @@ DEFAULT_ALLOWED_EVENTS = {
     'player_kicked',
     'player_votekicked',
     'player_high_ping',
-    'banned_users_loaded',
     'xp_added',
     'admin_granted',
     'server_list_created',
@@ -232,16 +230,6 @@ def process_line(line: str):
         who = m.group(1).strip()
         if 'admin_granted' in ALLOWED_EVENTS:
             append_event('global', 'admin_granted', {'who': who, 'raw': text})
-        return
-
-    m = RE_BANNED_LOADED.search(text)
-    if m:
-        try:
-            count = int(m.group(1))
-        except Exception:
-            count = None
-        if 'banned_users_loaded' in ALLOWED_EVENTS:
-            append_event('global', 'banned_users_loaded', {'count': count, 'raw': text})
         return
 
     m = RE_XP.search(text)
