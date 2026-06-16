@@ -147,7 +147,7 @@ TMP_CONFIG="${CONFIG_PATH}.tmp"
 for key in "${CONFIG_KEYS[@]}"; do
   env_var_name="${key//[ -]/_}"
   env_value="${!env_var_name}"
-  
+
   local_value=""
   if [ -n "$env_value" ]; then
     local_value="$env_value"
@@ -158,12 +158,9 @@ for key in "${CONFIG_KEYS[@]}"; do
   fi
 
   if [ -n "$env_value" ] && [ "${current_config_values[$key]}" != "$env_value" ]; then
-    echo "Updating $key in ServerConfig.txt: '${current_config_values[$key]}' -> '$env_value'"
-  elif [ -z "$env_value" ] && [ -z "${current_config_values[$key]}" ] && [ -n "${defaults[$key]}" ]; then
-    echo "Setting $key in ServerConfig.txt to default: '${defaults[$key]}'"
-  elif [ -z "$env_value" ] && [ -n "${current_config_values[$key]}" ]; then
-    echo "Keeping $key in ServerConfig.txt: '${current_config_values[$key]}'"
+    echo "$key: ${current_config_values[$key]} -> $env_value"
   fi
+
   echo "$key=$local_value" >> "$TMP_CONFIG"
 done
 mv "$TMP_CONFIG" "$CONFIG_PATH"
