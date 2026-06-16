@@ -158,7 +158,7 @@ for key in "${CONFIG_KEYS[@]}"; do
   fi
 
   if [ -n "$env_value" ] && [ "${current_config_values[$key]}" != "$env_value" ]; then
-    echo "$key: ${current_config_values[$key]} -> $env_value"
+    echo "$key: '${current_config_values[$key]}' -> '$env_value'"
   fi
 
   echo "$key=$local_value" >> "$TMP_CONFIG"
