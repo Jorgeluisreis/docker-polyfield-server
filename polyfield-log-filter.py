@@ -35,10 +35,12 @@ RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_PLAYER_BANNED = re.compile(r"\bplayer\s+([^,\n]+)\s+bann?ed\b(?: for\s*(.*))?", re.IGNORECASE)
 RE_SEI_BAN = re.compile(r"\[SEI\]\s+banning\s+user\s+\[\d+\](.*?)\s+for\s+(.*)", re.IGNORECASE)
+RE_BANNED_LIST = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in banned list for:\s*(.+)", re.IGNORECASE)
 RE_PLAYER_KICKED = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in kicked list for:\s*(.+)", re.IGNORECASE)
 RE_VOTEKICKED = re.compile(r"\[GameManager\]\s*votekicked:\s*([^\s,\n]+)", re.IGNORECASE)
 RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*players vote", re.IGNORECASE)
 RE_HIGH_PING_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*high ping", re.IGNORECASE)
+RE_CHEAT_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*cheat detected", re.IGNORECASE)
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
 RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
@@ -250,6 +252,13 @@ def process_line(line: str):
             append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
         return
 
+    m = RE_CHEAT_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_banned' in ALLOWED_EVENTS:
+            append_event('global', 'player_banned', {'player': player, 'reason': 'cheat detected', 'raw': text})
+        return
+
     m = RE_VOTEKICK_WARN.search(text)
     if m:
         player = m.group(1).strip()
@@ -270,6 +279,14 @@ def process_line(line: str):
         reason = m.group(2).strip()
         if 'player_kicked' in ALLOWED_EVENTS:
             append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
+        return
+
+    m = RE_BANNED_LIST.search(text)
+    if m:
+        player = m.group(1).strip()
+        reason = m.group(2).strip()
+        if 'player_banned' in ALLOWED_EVENTS:
+            append_event('global', 'player_banned', {'player': player, 'reason': reason, 'raw': text})
         return
 
     m = RE_SEI_BAN.search(text)
