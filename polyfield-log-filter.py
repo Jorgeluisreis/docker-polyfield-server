@@ -112,9 +112,10 @@ def human_ts():
 
 
 def file_ts():
+    safe_format = DATE_FORMAT.replace('/', '-')
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%m-%d_%H-%M')
-    return datetime.now().strftime('%Y-%m-%d_%H-%M')
+        return datetime.now(TZINFO).strftime(f'{safe_format}_%H-%M')
+    return datetime.now().strftime(f'{safe_format}_%H-%M')
 
 
 CURRENT_MAP = None
