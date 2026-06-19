@@ -1,9 +1,48 @@
-
 #!/bin/bash
 
 CONFIG="$1"
+
+resolve_date_format() {
+  local tz="${TZ:-}"
+  if [ -z "$tz" ]; then
+    echo "%Y-%m-%d"
+    return
+  fi
+
+  local tz_lower
+  tz_lower=$(echo "$tz" | tr '[:upper:]' '[:lower:]')
+
+  local mdy_keys=("us/" "new_york" "chicago" "denver" "los_angeles" "phoenix" "anchorage" "honolulu" "manila" "panama" "puerto_rico")
+  for key in "${mdy_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%m/%d/%Y"
+      return
+    fi
+  done
+
+  local ymd_keys=("canada/" "toronto" "vancouver" "shanghai" "tokyo" "seoul" "taipei" "budapest" "tehran" "utc" "gmt")
+  for key in "${ymd_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%Y-%m-%d"
+      return
+    fi
+  done
+
+  echo "%d/%m/%Y"
+}
+
+DATE_FORMAT=$(resolve_date_format)
+
+log_info() {
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: $*"
+}
+
+log_err() {
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | ERROR: $*" >&2
+}
+
 if [ ! -f "$CONFIG" ]; then
-  echo "ERROR: ServerConfig.txt not found at $CONFIG"
+  log_err "ServerConfig.txt not found at $CONFIG"
   exit 1
 fi
 
@@ -62,7 +101,7 @@ for key in "${!required_fields[@]}"; do
   value=$(grep -iE "^[[:space:]]*$key[[:space:]]*=" "$CONFIG" | head -n 1 | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
   if [ -z "$value" ]; then
-    echo "ERROR: $key is required!"
+    log_err "$key is required!"
     exit 1
   fi
 
@@ -70,7 +109,7 @@ for key in "${!required_fields[@]}"; do
   if [[ "$validation" == int* ]]; then
     IFS=':' read _ min max <<< "$validation"
     if ! validate_int "$value" "$min" "$max"; then
-      echo "ERROR: $key must be an integer between $min and $max!"
+      log_err "$key must be an integer between $min and $max!"
       exit 1
     fi
   fi
@@ -83,18 +122,18 @@ for key in "${!optional_fields[@]}"; do
     validation="${optional_fields[$key]}"
     if [[ "$validation" == "bool" ]]; then
       if ! validate_bool "$value"; then
-        echo "ERROR: $key must be true or false!"
+        log_err "$key must be true or false!"
         exit 1
       fi
     elif [[ "$validation" == "numeric" ]]; then
       if ! [[ "$value" =~ ^[0-9]+$ ]]; then
-        echo "ERROR: $key must contain only numbers!"
+        log_err "$key must contain only numbers!"
         exit 1
       fi
     elif [[ "$validation" == int* ]]; then
       IFS=':' read _ min max <<< "$validation"
       if ! validate_int "$value" "$min" "$max"; then
-        echo "ERROR: $key must be an integer between $min and $max!"
+        log_err "$key must be an integer between $min and $max!"
         exit 1
       fi
     elif [[ "$validation" == *"|"* ]]; then
@@ -107,11 +146,11 @@ for key in "${!optional_fields[@]}"; do
       else
         allowed_list="${options//|/, }"
         [[ "$type" == "bool" && ! "$options" =~ "true" ]] && allowed_list="true, false, $allowed_list"
-        echo "ERROR: $key must be one of: $allowed_list!"
+        log_err "$key must be one of: $allowed_list!"
         exit 1
       fi
     fi
   fi
 done
 
-echo "Configuration is valid."
+log_info "Configuration is valid."

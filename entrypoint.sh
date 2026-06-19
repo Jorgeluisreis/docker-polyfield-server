@@ -2,14 +2,53 @@
 
 set -e
 
+resolve_date_format() {
+  local tz="${TZ:-}"
+  if [ -z "$tz" ]; then
+    echo "%Y-%m-%d"
+    return
+  fi
+
+  local tz_lower
+  tz_lower=$(echo "$tz" | tr '[:upper:]' '[:lower:]')
+
+  local mdy_keys=("us/" "new_york" "chicago" "denver" "los_angeles" "phoenix" "anchorage" "honolulu" "manila" "panama" "puerto_rico")
+  for key in "${mdy_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%m/%d/%Y"
+      return
+    fi
+  done
+
+  local ymd_keys=("canada/" "toronto" "vancouver" "shanghai" "tokyo" "seoul" "taipei" "budapest" "tehran" "utc" "gmt")
+  for key in "${ymd_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%Y-%m-%d"
+      return
+    fi
+  done
+
+  echo "%d/%m/%Y"
+}
+
+DATE_FORMAT=$(resolve_date_format)
+
+log_info() {
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: $*"
+}
+
+log_err() {
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | ERROR: $*" >&2
+}
+
 if [ ! -z "$TZ" ]; then
   if [ -f "/usr/share/zoneinfo/$TZ" ]; then
     ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
     echo "$TZ" > /etc/timezone
     export TZ
-    echo "Timezone set to $TZ."
+    log_info "Timezone set to $TZ."
   else
-    echo "WARNING: Timezone '$TZ' not found under /usr/share/zoneinfo. Using container default timezone."
+    log_err "Timezone '$TZ' not found under /usr/share/zoneinfo. Using default."
   fi
 fi
 
@@ -44,11 +83,11 @@ mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 
 cd "$DATA_DIR"
 
-LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*?\.zip' | sort -V | tail -n1) || { echo "ERROR: Could not fetch builds list"; exit 1; }
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*?\.zip' | sort -V | tail -n1) || { log_err "Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
-  echo "ERROR: Could not find the latest Polyfield Linux version."
+  log_err "Could not find the latest Polyfield Linux version."
   exit 1
 fi
 
@@ -58,18 +97,18 @@ MANIFEST_FILE="$DATA_DIR/.server_manifest"
 CURRENT_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 2>/dev/null | head -n1)
 
 if [ -n "$CURRENT_BIN" ] && [ "$INSTALLED_VERSION" == "$LATEST_URL" ] && [ -f "$MANIFEST_FILE" ]; then
-  echo "Latest version ($(basename "$CURRENT_BIN")) is already installed in volume. Skipping download."
+  log_info "Latest version ($(basename "$CURRENT_BIN")) is already installed in volume. Skipping download."
 else
-  echo "New version detected or binary missing. Downloading from $FULL_URL..."
+  log_info "New version detected or binary missing. Downloading from $FULL_URL..."
   
   if [ -f "$MANIFEST_FILE" ]; then
     if [ "$PRESERVE_DATA_ON_UPDATE" = "false" ]; then
-      echo "Cleaning up previous version completely..."
+      log_info "Cleaning up previous version completely..."
       while IFS= read -r file; do
         [ -n "$file" ] && rm -rf "$file"
       done < "$MANIFEST_FILE"
     else
-      echo "Cleaning up previous version using manifest, preserving user data..."
+      log_info "Cleaning up previous version using manifest, preserving user data..."
       while IFS= read -r file; do
         if [[ "$file" == "editor/"* || "$file" == "logs/"* || "$file" == "editor" || "$file" == "logs" || "$file" == "ServerConfig.txt" || "$file" == "banned-users.txt" ]]; then
           continue
@@ -81,9 +120,11 @@ else
   
   rm -f Polyfield_v*_Linux*.x86_64 GameAssembly.so UnityPlayer.so
   rm -rf Polyfield_v*_Linux*_Data
-  wget -O "Polyfield_Linux.zip" "$FULL_URL"
+  wget -q -O "Polyfield_Linux.zip" "$FULL_URL" > /dev/null 2>&1
+  log_info "Download complete. Extracting files..."
   unzip -Z1 "Polyfield_Linux.zip" > "$MANIFEST_FILE"
-  unzip -o "Polyfield_Linux.zip"
+  unzip -qo "Polyfield_Linux.zip"
+  log_info "Extraction complete."
   rm "Polyfield_Linux.zip"
   NEW_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 | head -n1)
   [ -n "$NEW_BIN" ] && chmod +x "$NEW_BIN"
@@ -119,15 +160,15 @@ CONFIG_KEYS=(
 
 CONFIG_PATH="$DATA_DIR/ServerConfig.txt"
 if [ -d "$CONFIG_PATH" ]; then
-  echo "ERROR: $CONFIG_PATH is a directory. It must be a file."
-  echo "To fix: Remove the directory and create an empty file with 'rm -rf $CONFIG_PATH && touch $CONFIG_PATH' on your host."
+  log_err "$CONFIG_PATH is a directory. It must be a file."
+  log_info "To fix: Remove the directory and create an empty file with 'rm -rf $CONFIG_PATH && touch $CONFIG_PATH' on your host."
   exit 1
 fi
 
-echo "Processing ServerConfig.txt..."
+log_info "Processing ServerConfig.txt..."
 declare -A current_config_values
 if [ -f "$CONFIG_PATH" ]; then
-  echo "Existing ServerConfig.txt found. Reading current values."
+  log_info "Existing ServerConfig.txt found. Reading current values."
   while IFS='=' read -r key value; do
     key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -136,7 +177,7 @@ if [ -f "$CONFIG_PATH" ]; then
     fi
   done < "$CONFIG_PATH"
 else
-  echo "ServerConfig.txt not found. Creating a new one."
+  log_info "ServerConfig.txt not found. Creating a new one."
 fi
 
 TMP_CONFIG="${CONFIG_PATH}.tmp"
@@ -145,7 +186,7 @@ TMP_CONFIG="${CONFIG_PATH}.tmp"
 for key in "${CONFIG_KEYS[@]}"; do
   env_var_name="${key//[ -]/_}"
   env_value="${!env_var_name}"
-  
+
   local_value=""
   if [ -n "$env_value" ]; then
     local_value="$env_value"
@@ -156,30 +197,27 @@ for key in "${CONFIG_KEYS[@]}"; do
   fi
 
   if [ -n "$env_value" ] && [ "${current_config_values[$key]}" != "$env_value" ]; then
-    echo "Updating $key in ServerConfig.txt: '${current_config_values[$key]}' -> '$env_value'"
-  elif [ -z "$env_value" ] && [ -z "${current_config_values[$key]}" ] && [ -n "${defaults[$key]}" ]; then
-    echo "Setting $key in ServerConfig.txt to default: '${defaults[$key]}'"
-  elif [ -z "$env_value" ] && [ -n "${current_config_values[$key]}" ]; then
-    echo "Keeping $key in ServerConfig.txt: '${current_config_values[$key]}'"
+    log_info "$key: '${current_config_values[$key]}' -> '$env_value'"
   fi
+
   echo "$key=$local_value" >> "$TMP_CONFIG"
 done
 mv "$TMP_CONFIG" "$CONFIG_PATH"
 
 if [ -z "$region" ]; then
-  echo "ERROR: region is required and must be set via environment variable."
+  log_err "region is required and must be set via environment variable."
   exit 1
 fi
 if [ -z "$starting_port" ]; then
-  echo "ERROR: starting_port is required and must be set via environment variable."
+  log_err "starting_port is required and must be set via environment variable."
   exit 1
 fi
 if [ -z "$username" ]; then
-  echo "ERROR: username is required and must be set via environment variable."
+  log_err "username is required and must be set via environment variable."
   exit 1
 fi
 
-echo "Validating server configuration..."
+log_info "Validating server configuration..."
 /validate_config.sh "$CONFIG_PATH"
 
 
@@ -198,7 +236,7 @@ RESTART_ENABLED=${RESTART_ENABLED:-false}
 
 if [ "$RESTART_ENABLED" = "true" ]; then
   if [ -n "$RESTART_INTERVAL_HOURS" ] && [ -n "$RESTART_AT_HOUR" ]; then
-    echo "ERROR: Set only one of RESTART_INTERVAL_HOURS or RESTART_AT_HOUR."
+    log_err "Set only one of RESTART_INTERVAL_HOURS or RESTART_AT_HOUR."
     exit 1
   fi
 
@@ -207,18 +245,18 @@ if [ "$RESTART_ENABLED" = "true" ]; then
 
   if [ -n "$RESTART_INTERVAL_HOURS" ]; then
     if ! [[ "$RESTART_INTERVAL_HOURS" =~ ^[1-9][0-9]*$ ]]; then
-      echo "ERROR: RESTART_INTERVAL_HOURS must be a positive integer (1-24)."
+      log_err "RESTART_INTERVAL_HOURS must be a positive integer (1-24)."
       exit 1
     fi
     if [ "$RESTART_INTERVAL_HOURS" -gt 24 ]; then
-      echo "ERROR: RESTART_INTERVAL_HOURS must be between 1 and 24."
+      log_err "RESTART_INTERVAL_HOURS must be between 1 and 24."
       exit 1
     fi
     INTERVAL="$RESTART_INTERVAL_HOURS"
     echo "0 */$INTERVAL * * * root /bin/touch /tmp/polyfield_restart >> /var/log/polyfield-restart-cron.log 2>&1" >> "$CRON_FILE"
     echo "" >> "$CRON_FILE"
     chmod 0644 "$CRON_FILE"
-    echo "Cronjob configured to signal restart every $INTERVAL hours."
+    log_info "Cronjob configured to signal restart every $INTERVAL hours."
 
   elif [ -n "$RESTART_AT_HOUR" ]; then
     if [[ "$RESTART_AT_HOUR" =~ ^([0-9]|1[0-9]|2[0-3])$ ]]; then
@@ -228,29 +266,29 @@ if [ "$RESTART_ENABLED" = "true" ]; then
       HOUR="${RESTART_AT_HOUR%%:*}"
       MINUTE="${RESTART_AT_HOUR##*:}"
     else
-      echo "ERROR: RESTART_AT_HOUR must be HH or HH:MM (00-23 or 00:00-23:59)."
+      log_err "RESTART_AT_HOUR must be HH or HH:MM (00-23 or 00:00-23:59)."
       exit 1
     fi
     echo "$MINUTE $HOUR * * * root /bin/touch /tmp/polyfield_restart >> /var/log/polyfield-restart-cron.log 2>&1" >> "$CRON_FILE"
     echo "" >> "$CRON_FILE"
     chmod 0644 "$CRON_FILE"
-  echo "Cronjob configured to signal restart daily at $(printf '%02d' $((10#$HOUR))):$(printf '%02d' $((10#$MINUTE)))."
+    log_info "Cronjob configured to signal restart daily at $(printf '%02d' $((10#$HOUR))):$(printf '%02d' $((10#$MINUTE)))."
   else
-    echo "RESTART_ENABLED is true but no RESTART_INTERVAL_HOURS or RESTART_AT_HOUR set. Nothing scheduled."
+    log_info "RESTART_ENABLED is true but no RESTART_INTERVAL_HOURS or RESTART_AT_HOUR set. Nothing scheduled."
   fi
 
   if ! pgrep -x cron >/dev/null 2>&1; then
-    echo "Starting cron service..."
+    log_info "Starting cron service..."
     cron
     sleep 1
   else
-    echo "Cron already running."
+    log_info "Cron already running."
   fi
 else
-  echo "Restart scheduling disabled (RESTART_ENABLED != true)."
+  log_info "Restart scheduling disabled (RESTART_ENABLED != true)."
 fi
 
-echo "Starting Polyfield server supervisor..."
+log_info "Starting Polyfield server supervisor..."
 
 RAW_LOG="$DATA_DIR/server_raw.log"
 LOGS_DIR="$DATA_DIR/logs"
@@ -263,23 +301,23 @@ touch "$RAW_LOG"
 
 LOG_MONITOR_ENABLED=${LOG_MONITOR_ENABLED:-false}
 if [ "$LOG_MONITOR_ENABLED" = "true" ] && [ -x /usr/local/bin/polyfield-log-filter.py ]; then
-  echo "Starting log monitor..."
-  tail -n 0 -F "$RAW_LOG" 2>/dev/null | python3 /usr/local/bin/polyfield-log-filter.py &
+  log_info "Starting log monitor..."
+  tail -n 0 -F "$RAW_LOG" 2>/dev/null | python3 -u /usr/local/bin/polyfield-log-filter.py &
   LOG_MONITOR_PID=$!
-  echo "Log monitor pid=$LOG_MONITOR_PID"
+  log_info "Log monitor pid=$LOG_MONITOR_PID"
 fi
 
 POLYFIELD_BIN=$(ls "$DATA_DIR"/Polyfield_v*_Linux*.x86_64 | head -n1)
 
 if [ -z "$POLYFIELD_BIN" ]; then
-  echo "ERROR: Could not find Polyfield binary to run."
+  log_err "Could not find Polyfield binary to run."
   exit 1
 fi
 
 while true; do
   BIN_NAME=$(basename "$POLYFIELD_BIN")
-  echo "$(date) - Launching $BIN_NAME from volume"
-  echo "$(date) - Launching $BIN_NAME from volume" >> "$RAW_LOG"
+  log_info "Launching $BIN_NAME from volume"
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Launching $BIN_NAME from volume" >> "$RAW_LOG"
   
   cd "$DATA_DIR"
   ./"$BIN_NAME" >> "$RAW_LOG" 2>&1 &
@@ -294,11 +332,11 @@ while true; do
         fi
       fi
 
-      echo "$(date) - Restart requested (sentinel found)."
-      echo "$(date) - Restart requested (sentinel found)." >> "$RAW_LOG"
+      log_info "Restart requested (sentinel found)."
+      echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Restart requested (sentinel found)." >> "$RAW_LOG"
 
       for i in 5 4 3 2 1; do
-        echo "server_restarting: The server will restart in $i seconds." >> "$RAW_LOG"
+        echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: server_restarting: The server will restart in $i seconds." >> "$RAW_LOG"
         sleep 1
       done
 
@@ -315,13 +353,13 @@ while true; do
   done
 
   wait "$CHILD_PID" || true
-  echo "$(date) - Polyfield process stopped; restarting in 5 seconds..."
-  echo "$(date) - Polyfield process stopped; restarting in 5 seconds..." >> "$RAW_LOG"
+  log_info "Polyfield process stopped; restarting in 5 seconds..."
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Polyfield process stopped; restarting in 5 seconds..." >> "$RAW_LOG"
 
   if [ "${NEED_ROTATE:-}" = "1" ]; then
     NEED_ROTATE=0
     rm -f "$RAW_LOG" 2>/dev/null || true
-    echo "$(date) - Removed raw log prior to restart"
+    log_info "Removed raw log prior to restart"
   fi
   sleep 5
 done

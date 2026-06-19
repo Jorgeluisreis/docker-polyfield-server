@@ -24,6 +24,23 @@ if TZ and ZoneInfo:
 else:
     TZINFO = None
 
+def resolve_date_format(tz_name: str) -> str:
+    if not tz_name:
+        return '%Y-%m-%d'
+    
+    tz_lower = tz_name.lower()
+    
+    if any(k in tz_lower for k in ('us/', 'new_york', 'chicago', 'denver', 'los_angeles', 'phoenix', 'anchorage', 'honolulu', 'manila', 'panama', 'puerto_rico')):
+        return '%m/%d/%Y'
+    
+    if any(k in tz_lower for k in ('canada/', 'toronto', 'vancouver', 'shanghai', 'tokyo', 'seoul', 'taipei', 'budapest', 'tehran', 'utc', 'gmt')):
+        return '%Y-%m-%d'
+    
+    return '%d/%m/%Y'
+
+DATE_FORMAT = resolve_date_format(TZ)
+
+
 LAST_MAP_LOAD_TIME = time.time()
 SENTINEL_RESTART_REQUEST = '/tmp/polyfield_restart'
 SENTINEL_RESTART_READY = '/tmp/polyfield_restart_ready'
@@ -32,14 +49,15 @@ RE_MAP_LOAD = re.compile(r"map(?: name)?[:=]\s*'?\"?([^'\"]+)'?\"?", re.IGNORECA
 RE_LOADING = re.compile(r"loading map\s+([^,\n]+)", re.IGNORECASE)
 RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_BANNED_LOADED = re.compile(r"banned users.*loaded.*?(\d+)", re.IGNORECASE)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_PLAYER_BANNED = re.compile(r"player\s*([^,\n]+)\s*bann?ed(?: for\s*(.*))?", re.IGNORECASE)
+RE_PLAYER_BANNED = re.compile(r"\bplayer\s+([^,\n]+)\s+bann?ed\b(?: for\s*(.*))?", re.IGNORECASE)
 RE_SEI_BAN = re.compile(r"\[SEI\]\s+banning\s+user\s+\[\d+\](.*?)\s+for\s+(.*)", re.IGNORECASE)
+RE_BANNED_LIST = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in banned list for:\s*(.+)", re.IGNORECASE)
 RE_PLAYER_KICKED = re.compile(r"\[.*?\]\s*([^\s]+)\s+was in kicked list for:\s*(.+)", re.IGNORECASE)
 RE_VOTEKICKED = re.compile(r"\[GameManager\]\s*votekicked:\s*([^\s,\n]+)", re.IGNORECASE)
 RE_VOTEKICK_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*players vote", re.IGNORECASE)
 RE_HIGH_PING_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*high ping", re.IGNORECASE)
+RE_CHEAT_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reason:\s*cheat detected", re.IGNORECASE)
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
 RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
@@ -51,7 +69,6 @@ DEFAULT_ALLOWED_EVENTS = {
     'player_kicked',
     'player_votekicked',
     'player_high_ping',
-    'banned_users_loaded',
     'xp_added',
     'admin_granted',
     'server_list_created',
@@ -59,6 +76,8 @@ DEFAULT_ALLOWED_EVENTS = {
     'match_end',
     'server_restarting',
 }
+
+LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT', 'false').lower() == 'true'
 
 
 env_events = os.environ.get('LOG_EVENTS')
@@ -81,21 +100,22 @@ def slug(s: str, maxlen=80):
 
 def now_ts():
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%m-%d %H:%M:%S %z')
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.now(TZINFO).strftime(f'{DATE_FORMAT} %H:%M:%S %z')
+    return datetime.now().strftime(f'{DATE_FORMAT} %H:%M:%S')
 
 
 def human_ts():
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%d-%m %H:%M:%S')
-    return datetime.now().strftime('%Y-%d-%m %H:%M:%S')
+        return datetime.now(TZINFO).strftime(f'{DATE_FORMAT} %H:%M:%S')
+    return datetime.now().strftime(f'{DATE_FORMAT} %H:%M:%S')
 
 
 
 def file_ts():
+    safe_format = DATE_FORMAT.replace('/', '-')
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%m-%d_%H-%M')
-    return datetime.now().strftime('%Y-%m-%d_%H-%M')
+        return datetime.now(TZINFO).strftime(f'{safe_format}_%H-%M')
+    return datetime.now().strftime(f'{safe_format}_%H-%M')
 
 
 CURRENT_MAP = None
@@ -154,6 +174,9 @@ def append_event(mapname, event_type, payload):
             f.write(f"{human_ts()} | {event_type}: {raw}\n")
     except Exception:
         pass
+    
+    if LOG_TO_STDOUT:
+        print(f"{human_ts()} | {event_type}: {raw}", flush=True)
 
 def process_line(line: str):
     global CURRENT_MAP, LAST_MAP_LOAD_TIME
@@ -229,16 +252,6 @@ def process_line(line: str):
             append_event('global', 'admin_granted', {'who': who, 'raw': text})
         return
 
-    m = RE_BANNED_LOADED.search(text)
-    if m:
-        try:
-            count = int(m.group(1))
-        except Exception:
-            count = None
-        if 'banned_users_loaded' in ALLOWED_EVENTS:
-            append_event('global', 'banned_users_loaded', {'count': count, 'raw': text})
-        return
-
     m = RE_XP.search(text)
     if m:
         try:
@@ -248,6 +261,50 @@ def process_line(line: str):
         player = m.group(2).strip() if m.group(2) else None
         if 'xp_added' in ALLOWED_EVENTS:
             append_event('global', 'xp_added', {'player': player, 'xp': xp, 'raw': text})
+        return
+
+    m = RE_HIGH_PING_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_high_ping' in ALLOWED_EVENTS:
+            append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
+        return
+
+    m = RE_CHEAT_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_banned' in ALLOWED_EVENTS:
+            append_event('global', 'player_banned', {'player': player, 'reason': 'cheat detected', 'raw': text})
+        return
+
+    m = RE_VOTEKICK_WARN.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'reason': 'players vote', 'raw': text})
+        return
+
+    m = RE_VOTEKICKED.search(text)
+    if m:
+        player = m.group(1).strip()
+        if 'player_votekicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_votekicked', {'player': player, 'raw': text})
+        return
+
+    m = RE_PLAYER_KICKED.search(text)
+    if m:
+        player = m.group(1).strip()
+        reason = m.group(2).strip()
+        if 'player_kicked' in ALLOWED_EVENTS:
+            append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
+        return
+
+    m = RE_BANNED_LIST.search(text)
+    if m:
+        player = m.group(1).strip()
+        reason = m.group(2).strip()
+        if 'player_banned' in ALLOWED_EVENTS:
+            append_event('global', 'player_banned', {'player': player, 'reason': reason, 'raw': text})
         return
 
     m = RE_SEI_BAN.search(text)
@@ -264,35 +321,6 @@ def process_line(line: str):
         reason = m.group(2).strip() if m.group(2) else None
         if 'player_banned' in ALLOWED_EVENTS:
             append_event('global', 'player_banned', {'player': player, 'reason': reason, 'raw': text})
-        return
-
-    m = RE_PLAYER_KICKED.search(text)
-    if m:
-        player = m.group(1).strip()
-        reason = m.group(2).strip()
-        if 'player_kicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_kicked', {'player': player, 'reason': reason, 'raw': text})
-        return
-
-    m = RE_VOTEKICKED.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_votekicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_votekicked', {'player': player, 'raw': text})
-        return
-
-    m = RE_VOTEKICK_WARN.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_votekicked' in ALLOWED_EVENTS:
-            append_event('global', 'player_votekicked', {'player': player, 'reason': 'players vote', 'raw': text})
-        return
-
-    m = RE_HIGH_PING_WARN.search(text)
-    if m:
-        player = m.group(1).strip()
-        if 'player_high_ping' in ALLOWED_EVENTS:
-            append_event('global', 'player_high_ping', {'player': player, 'reason': 'high ping', 'raw': text})
         return
 
     m = RE_TEAM_SWITCH.search(text)
