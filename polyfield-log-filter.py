@@ -24,6 +24,23 @@ if TZ and ZoneInfo:
 else:
     TZINFO = None
 
+def resolve_date_format(tz_name: str) -> str:
+    if not tz_name:
+        return '%Y-%m-%d'
+    
+    tz_lower = tz_name.lower()
+    
+    if any(k in tz_lower for k in ('us/', 'new_york', 'chicago', 'denver', 'los_angeles', 'phoenix', 'anchorage', 'honolulu', 'manila', 'panama', 'puerto_rico')):
+        return '%m/%d/%Y'
+    
+    if any(k in tz_lower for k in ('canada/', 'toronto', 'vancouver', 'shanghai', 'tokyo', 'seoul', 'taipei', 'budapest', 'tehran', 'utc', 'gmt')):
+        return '%Y-%m-%d'
+    
+    return '%d/%m/%Y'
+
+DATE_FORMAT = resolve_date_format(TZ)
+
+
 LAST_MAP_LOAD_TIME = time.time()
 SENTINEL_RESTART_REQUEST = '/tmp/polyfield_restart'
 SENTINEL_RESTART_READY = '/tmp/polyfield_restart_ready'
@@ -83,14 +100,14 @@ def slug(s: str, maxlen=80):
 
 def now_ts():
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%m-%d %H:%M:%S %z')
-    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        return datetime.now(TZINFO).strftime(f'{DATE_FORMAT} %H:%M:%S %z')
+    return datetime.now().strftime(f'{DATE_FORMAT} %H:%M:%S')
 
 
 def human_ts():
     if TZINFO:
-        return datetime.now(TZINFO).strftime('%Y-%d-%m %H:%M:%S')
-    return datetime.now().strftime('%Y-%d-%m %H:%M:%S')
+        return datetime.now(TZINFO).strftime(f'{DATE_FORMAT} %H:%M:%S')
+    return datetime.now().strftime(f'{DATE_FORMAT} %H:%M:%S')
 
 
 

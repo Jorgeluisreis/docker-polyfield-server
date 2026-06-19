@@ -2,12 +2,43 @@
 
 set -e
 
+resolve_date_format() {
+  local tz="${TZ:-}"
+  if [ -z "$tz" ]; then
+    echo "%Y-%m-%d"
+    return
+  fi
+
+  local tz_lower
+  tz_lower=$(echo "$tz" | tr '[:upper:]' '[:lower:]')
+
+  local mdy_keys=("us/" "new_york" "chicago" "denver" "los_angeles" "phoenix" "anchorage" "honolulu" "manila" "panama" "puerto_rico")
+  for key in "${mdy_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%m/%d/%Y"
+      return
+    fi
+  done
+
+  local ymd_keys=("canada/" "toronto" "vancouver" "shanghai" "tokyo" "seoul" "taipei" "budapest" "tehran" "utc" "gmt")
+  for key in "${ymd_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%Y-%m-%d"
+      return
+    fi
+  done
+
+  echo "%d/%m/%Y"
+}
+
+DATE_FORMAT=$(resolve_date_format)
+
 log_info() {
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | INFO: $*"
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: $*"
 }
 
 log_err() {
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | ERROR: $*" >&2
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | ERROR: $*" >&2
 }
 
 if [ ! -z "$TZ" ]; then
@@ -286,7 +317,7 @@ fi
 while true; do
   BIN_NAME=$(basename "$POLYFIELD_BIN")
   log_info "Launching $BIN_NAME from volume"
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | INFO: Launching $BIN_NAME from volume" >> "$RAW_LOG"
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Launching $BIN_NAME from volume" >> "$RAW_LOG"
   
   cd "$DATA_DIR"
   ./"$BIN_NAME" >> "$RAW_LOG" 2>&1 &
@@ -302,10 +333,10 @@ while true; do
       fi
 
       log_info "Restart requested (sentinel found)."
-      echo "$(date '+%Y-%d-%m %H:%M:%S') | INFO: Restart requested (sentinel found)." >> "$RAW_LOG"
+      echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Restart requested (sentinel found)." >> "$RAW_LOG"
 
       for i in 5 4 3 2 1; do
-        echo "server_restarting: The server will restart in $i seconds." >> "$RAW_LOG"
+        echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: server_restarting: The server will restart in $i seconds." >> "$RAW_LOG"
         sleep 1
       done
 
@@ -323,7 +354,7 @@ while true; do
 
   wait "$CHILD_PID" || true
   log_info "Polyfield process stopped; restarting in 5 seconds..."
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | INFO: Polyfield process stopped; restarting in 5 seconds..." >> "$RAW_LOG"
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Polyfield process stopped; restarting in 5 seconds..." >> "$RAW_LOG"
 
   if [ "${NEED_ROTATE:-}" = "1" ]; then
     NEED_ROTATE=0

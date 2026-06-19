@@ -1,14 +1,44 @@
-
 #!/bin/bash
 
 CONFIG="$1"
 
+resolve_date_format() {
+  local tz="${TZ:-}"
+  if [ -z "$tz" ]; then
+    echo "%Y-%m-%d"
+    return
+  fi
+
+  local tz_lower
+  tz_lower=$(echo "$tz" | tr '[:upper:]' '[:lower:]')
+
+  local mdy_keys=("us/" "new_york" "chicago" "denver" "los_angeles" "phoenix" "anchorage" "honolulu" "manila" "panama" "puerto_rico")
+  for key in "${mdy_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%m/%d/%Y"
+      return
+    fi
+  done
+
+  local ymd_keys=("canada/" "toronto" "vancouver" "shanghai" "tokyo" "seoul" "taipei" "budapest" "tehran" "utc" "gmt")
+  for key in "${ymd_keys[@]}"; do
+    if [[ "$tz_lower" == *"$key"* ]]; then
+      echo "%Y-%m-%d"
+      return
+    fi
+  done
+
+  echo "%d/%m/%Y"
+}
+
+DATE_FORMAT=$(resolve_date_format)
+
 log_info() {
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | INFO: $*"
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: $*"
 }
 
 log_err() {
-  echo "$(date '+%Y-%d-%m %H:%M:%S') | ERROR: $*" >&2
+  echo "$(date "+$DATE_FORMAT %H:%M:%S") | ERROR: $*" >&2
 }
 
 if [ ! -f "$CONFIG" ]; then
