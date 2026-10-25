@@ -63,7 +63,9 @@ RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*
 RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
 RE_SERVER_ERROR_START = re.compile(
     r"^(?:\[[^\]]+\]\s*)?(?:(?:[A-Za-z_][\w.<>`+$-]*Exception)\b|"
-    r"UnityException\b|Error\b|Fatal\b|Assertion failed\b|Crash\b)",
+    r"UnityException\b|Unhandled\s+exception\b|Fatal(?:\s+error)?\b|"
+    r"Assertion failed\b|Crash(?:ed|ing)?\b|SIGSEGV\b|Segmentation fault\b|"
+    r"Aborted\b|Stack overflow\b)",
     re.IGNORECASE,
 )
 RE_SERVER_ERROR_CONTINUATION = re.compile(
@@ -206,15 +208,6 @@ def append_server_error(lines):
             f.write(f"{header}\n{raw_error}\n\n")
     except Exception:
         pass
-
-    if CURRENT_MAP:
-        try:
-            slugname = slug(CURRENT_MAP)
-            mapfile = MAP_LOGFILE.get(slugname) or create_map_log(CURRENT_MAP)
-            with open(mapfile, 'a', encoding='utf-8') as f:
-                f.write(f"{header}\n{raw_error}\n\n")
-        except Exception:
-            pass
 
     if LOG_TO_STDOUT:
         print(f"{header}\n{raw_error}", flush=True)
