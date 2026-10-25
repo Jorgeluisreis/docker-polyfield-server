@@ -290,12 +290,64 @@ fi
 
 log_info "Starting Polyfield server supervisor..."
 
-RAW_LOG="$DATA_DIR/server_raw.log"
 LOGS_DIR="$DATA_DIR/logs"
-mkdir -p "$LOGS_DIR"
+RAW_LOG_DIR="$DATA_DIR/raw_logs"
+RAW_LOG="$RAW_LOG_DIR/server_raw.log"
+LEGACY_RAW_LOG="$DATA_DIR/server_raw.log"
+mkdir -p "$LOGS_DIR" "$RAW_LOG_DIR"
 
-ROTATE_RAW_ON_RESTART=${ROTATE_RAW_ON_RESTART:-true}
-RAW_LOG_MAX_BYTES=${RAW_LOG_MAX_BYTES:-0}
+# Keep the existing raw log when upgrading from versions that stored it at
+# /root/server_raw.log. Do not overwrite a log already present at the new path.
+if [ -f "$LEGACY_RAW_LOG" ] && [ ! -f "$RAW_LOG" ]; then
+  mv "$LEGACY_RAW_LOG" "$RAW_LOG"
+  log_info "Migrated raw log to $RAW_LOG"
+fi
+
+rotate_raw_log() {
+  local retention="${RAW_LOG_RETENTION:-0}"
+  local archive_stamp
+  local archive_path
+  local suffix=1
+  local archived_files=()
+
+  if ! [[ "$retention" =~ ^[0-9]+$ ]]; then
+    log_err "RAW_LOG_RETENTION must be a non-negative integer. Using 0 (no retention)."
+    retention=0
+  fi
+
+  if [ ! -f "$RAW_LOG" ]; then
+    touch "$RAW_LOG"
+    return
+  fi
+
+  if [ "$retention" -eq 0 ]; then
+    rm -f "$RAW_LOG"
+    touch "$RAW_LOG"
+    log_info "Raw log rotated without retention."
+    return
+  fi
+
+  archive_stamp=$(date "+%Y-%m-%d_%H-%M-%S")
+  archive_path="$RAW_LOG_DIR/server_raw_${archive_stamp}.log"
+  while [ -e "$archive_path" ]; do
+    archive_path="$RAW_LOG_DIR/server_raw_${archive_stamp}_${suffix}.log"
+    suffix=$((suffix + 1))
+  done
+
+  mv "$RAW_LOG" "$archive_path"
+  touch "$RAW_LOG"
+  log_info "Archived raw log as $(basename "$archive_path")."
+
+  while IFS= read -r archive_path; do
+    [ -n "$archive_path" ] && archived_files+=("$archive_path")
+  done < <(find "$RAW_LOG_DIR" -maxdepth 1 -type f -name 'server_raw_*.log' -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
+
+  if [ "${#archived_files[@]}" -gt "$retention" ]; then
+    for ((suffix=retention; suffix<${#archived_files[@]}; suffix++)); do
+      rm -f "${archived_files[$suffix]}"
+    done
+  fi
+}
 
 touch "$RAW_LOG"
 
@@ -314,7 +366,15 @@ if [ -z "$POLYFIELD_BIN" ]; then
   exit 1
 fi
 
+SERVER_STARTED=0
+
 while true; do
+  if [ "$SERVER_STARTED" -eq 1 ]; then
+    # RAW_LOG_RETENTION is intentionally read for every relaunch so the
+    # current container environment controls each automatic restart.
+    rotate_raw_log
+  fi
+
   BIN_NAME=$(basename "$POLYFIELD_BIN")
   log_info "Launching $BIN_NAME from volume"
   echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Launching $BIN_NAME from volume" >> "$RAW_LOG"
@@ -342,8 +402,6 @@ while true; do
 
       echo "server_restarting: Restart requested (sentinel found). Reason: $RESTART_REASON" >> "$RAW_LOG"
 
-      NEED_ROTATE=1
-
       rm -f /tmp/polyfield_restart /tmp/polyfield_restart_ready
       kill -TERM "$CHILD_PID" 2>/dev/null || true
       sleep 5
@@ -353,13 +411,8 @@ while true; do
   done
 
   wait "$CHILD_PID" || true
+  SERVER_STARTED=1
   log_info "Polyfield process stopped; restarting in 5 seconds..."
   echo "$(date "+$DATE_FORMAT %H:%M:%S") | INFO: Polyfield process stopped; restarting in 5 seconds..." >> "$RAW_LOG"
-
-  if [ "${NEED_ROTATE:-}" = "1" ]; then
-    NEED_ROTATE=0
-    rm -f "$RAW_LOG" 2>/dev/null || true
-    log_info "Removed raw log prior to restart"
-  fi
   sleep 5
 done
