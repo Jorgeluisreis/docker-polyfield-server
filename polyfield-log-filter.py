@@ -61,6 +61,18 @@ RE_CHEAT_WARN = re.compile(r"\[PlayerControl\]\s*([^\s]+)\s+recived warn:\s*Reas
 RE_TEAM_SWITCH = re.compile(r"\[.*?\]\s*([^,\n]+)\s+switched to\s+([^,\n]+)", re.IGNORECASE)
 RE_GAME_XP = re.compile(r"(\d+)\s*\+\s*(\d+)\s*new xp added, total score[:=]?\s*(\d+)", re.IGNORECASE)
 RE_SERVER_RESTARTING = re.compile(r"server_restarting:\s*(.*)", re.IGNORECASE)
+RE_SERVER_ERROR_START = re.compile(
+    r"^(?:\[[^\]]+\]\s*)?(?:(?:[A-Za-z_][\w.<>`+$-]*Exception)\b|"
+    r"UnityException\b|Unhandled\s+exception\b|Fatal(?:\s+error)?\b|"
+    r"Assertion failed\b|Crash(?:ed|ing)?\b|SIGSEGV\b|Segmentation fault\b|"
+    r"Aborted\b|Stack overflow\b)",
+    re.IGNORECASE,
+)
+RE_SERVER_ERROR_CONTINUATION = re.compile(
+    r"^(?:at\s+|---\s+|Parameter name:\s*|InnerException\b|Caused by:\s*|"
+    r"[A-Za-z_][\w.$<>`+\-]*:\S)",
+    re.IGNORECASE,
+)
 
 
 DEFAULT_ALLOWED_EVENTS = {
@@ -78,6 +90,8 @@ DEFAULT_ALLOWED_EVENTS = {
 }
 
 LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT', 'false').lower() == 'true'
+LOG_SERVER_ERRORS = os.environ.get('LOG_SERVER_ERRORS', 'false').lower() == 'true'
+SERVER_ERRORS_LOG = os.path.join(LOGS_DIR, 'server_errors.log')
 
 
 env_events = os.environ.get('LOG_EVENTS')
@@ -120,6 +134,7 @@ def file_ts():
 
 CURRENT_MAP = None
 MAP_LOGFILE = {}
+PENDING_SERVER_ERROR = []
 
 
 def create_map_log(mapname):
@@ -178,10 +193,60 @@ def append_event(mapname, event_type, payload):
     if LOG_TO_STDOUT:
         print(f"{human_ts()} | {event_type}: {raw}", flush=True)
 
+
+def append_server_error(lines):
+    if not LOG_SERVER_ERRORS or not lines:
+        return
+
+    raw_error = '\n'.join(lines)
+    map_context = CURRENT_MAP or 'unknown'
+    phase = 'match' if CURRENT_MAP else 'server'
+    header = f"{human_ts()} | server_error | map_context={map_context} | phase={phase}"
+
+    try:
+        with open(SERVER_ERRORS_LOG, 'a', encoding='utf-8') as f:
+            f.write(f"{header}\n{raw_error}\n\n")
+    except Exception:
+        pass
+
+    if LOG_TO_STDOUT:
+        print(f"{header}\n{raw_error}", flush=True)
+
+
+def flush_pending_server_error():
+    global PENDING_SERVER_ERROR
+    if PENDING_SERVER_ERROR:
+        append_server_error(PENDING_SERVER_ERROR)
+        PENDING_SERVER_ERROR = []
+
+
+def process_server_error_line(text):
+    global PENDING_SERVER_ERROR
+
+    if not LOG_SERVER_ERRORS:
+        return False
+
+    if PENDING_SERVER_ERROR:
+        if RE_SERVER_ERROR_CONTINUATION.search(text):
+            PENDING_SERVER_ERROR.append(text)
+            return True
+        flush_pending_server_error()
+
+    if RE_SERVER_ERROR_START.search(text):
+        PENDING_SERVER_ERROR = [text]
+        return True
+
+    return False
+
+
 def process_line(line: str):
     global CURRENT_MAP, LAST_MAP_LOAD_TIME
     text = (line or '').strip()
     if not text:
+        flush_pending_server_error()
+        return
+
+    if process_server_error_line(text):
         return
 
 
