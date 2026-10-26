@@ -4,8 +4,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
-    apt-get install -y wget unzip libc6-i386 lib32stdc++6 libncurses5:i386 cron tzdata python3 && \
-    apt-get clean
+    apt-get dist-upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        wget unzip libc6-i386 lib32stdc++6 libncurses5:i386 cron tzdata python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
 
