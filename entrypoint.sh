@@ -83,25 +83,7 @@ mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 
 cd "$DATA_DIR"
 
-BUILDS_PAGE_FILE="$DATA_DIR/.polyfield_builds_page.tmp"
-WGET_ERROR_FILE="$DATA_DIR/.polyfield_builds_error.tmp"
-rm -f "$BUILDS_PAGE_FILE" "$WGET_ERROR_FILE"
-
-if ! wget -O "$BUILDS_PAGE_FILE" https://polyfield.net/builds/ 2>"$WGET_ERROR_FILE"; then
-  log_err "Could not fetch builds list. wget output:"
-  if [ -s "$WGET_ERROR_FILE" ]; then
-    while IFS= read -r error_line; do
-      [ -n "$error_line" ] && log_err "wget: $error_line"
-    done < "$WGET_ERROR_FILE"
-  else
-    log_err "wget did not provide additional diagnostic information."
-  fi
-  rm -f "$BUILDS_PAGE_FILE" "$WGET_ERROR_FILE"
-  exit 1
-fi
-
-LATEST_URL=$(grep -oP 'Polyfield_v[0-9.]+_Linux[A-Za-z0-9._-]*\.zip' "$BUILDS_PAGE_FILE" | sort -V | tail -n1) || true
-rm -f "$BUILDS_PAGE_FILE" "$WGET_ERROR_FILE"
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*?\.zip' | sort -V | tail -n1) || { log_err "Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
