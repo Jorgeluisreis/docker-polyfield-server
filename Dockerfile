@@ -6,7 +6,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get dist-upgrade -y && \
     apt-get install -y --no-install-recommends \
-        wget unzip libc6-i386 lib32stdc++6 libncurses5:i386 cron tzdata python3 && \
+        ca-certificates wget unzip libc6-i386 lib32stdc++6 libncurses5:i386 cron tzdata python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

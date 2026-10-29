@@ -83,12 +83,11 @@ mkdir -p "$DATA_DIR/editor" "$DATA_DIR/logs"
 
 cd "$DATA_DIR"
 
-BUILDS_PAGE=$(wget -qO- --timeout=30 --tries=3 --user-agent="Mozilla/5.0" https://polyfield.net/builds/) || { log_err "Could not fetch builds list"; exit 1; }
-LATEST_URL=$(printf '%s' "$BUILDS_PAGE" | grep -oE 'Polyfield_v[0-9][A-Za-z0-9._-]*_Linux[A-Za-z0-9._-]*\.zip' | sort -Vu | tail -n1) || true
+LATEST_URL=$(wget -qO- https://polyfield.net/builds/ | grep -oP 'Polyfield_v[0-9.]+_Linux.*?\.zip' | sort -V | tail -n1) || { log_err "Could not fetch builds list"; exit 1; }
 FULL_URL="https://polyfield.net/builds/$LATEST_URL"
 
 if [ -z "$LATEST_URL" ]; then
-  log_err "Could not find a Polyfield Linux package in the builds page. The page format may have changed."
+  log_err "Could not find the latest Polyfield Linux version."
   exit 1
 fi
 
