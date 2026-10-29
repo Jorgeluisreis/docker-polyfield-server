@@ -87,7 +87,7 @@ BUILDS_PAGE_FILE="$DATA_DIR/.polyfield_builds_page.tmp"
 WGET_ERROR_FILE="$DATA_DIR/.polyfield_builds_error.tmp"
 rm -f "$BUILDS_PAGE_FILE" "$WGET_ERROR_FILE"
 
-if ! wget -qO "$BUILDS_PAGE_FILE" https://polyfield.net/builds/ 2>"$WGET_ERROR_FILE"; then
+if ! wget -O "$BUILDS_PAGE_FILE" https://polyfield.net/builds/ 2>"$WGET_ERROR_FILE"; then
   log_err "Could not fetch builds list. wget output:"
   if [ -s "$WGET_ERROR_FILE" ]; then
     while IFS= read -r error_line; do
