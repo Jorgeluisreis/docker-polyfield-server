@@ -48,7 +48,10 @@ SENTINEL_RESTART_READY = '/tmp/polyfield_restart_ready'
 RE_MAP_LOAD = re.compile(r"map(?: name)?[:=]\s*'?\"?([^'\"]+)'?\"?", re.IGNORECASE)
 RE_LOADING = re.compile(r"loading map\s+([^,\n]+)", re.IGNORECASE)
 RE_SERVER_LIST = re.compile(r"server list.*created.*map[:=]?\s*([^,\n]+)", re.IGNORECASE)
-RE_ADMIN = re.compile(r"admin(?: granted| added)?(?: to)?\s*(?:player|user)?\s*[:=]?\s*([^,\n]+)", re.IGNORECASE)
+RE_ADMIN = re.compile(
+    r"\[Server\]\[PlayerChat\]\s+(.+?)\s+got admin with code\.",
+    re.IGNORECASE,
+)
 RE_XP = re.compile(r"xp\s*(?:added)?[:=]?\s*(\d+).*player[:=]?\s*([^,\n]+)", re.IGNORECASE)
 RE_PLAYER_BANNED = re.compile(r"\bplayer\s+([^,\n]+)\s+bann?ed\b(?: for\s*(.*))?", re.IGNORECASE)
 RE_SEI_BAN = re.compile(r"\[SEI\]\s+banning\s+user\s+\[\d+\](.*?)\s+for\s+(.*)", re.IGNORECASE)
