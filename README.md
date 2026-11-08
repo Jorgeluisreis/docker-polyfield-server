@@ -36,7 +36,7 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   polyfield-server:
-    image: ghcr.io/jorgeluisreis/polyfield-server:latest
+    image: jluisreis/polyfield-server:latest
     container_name: polyfield
     environment:
       - region=My Server Region
